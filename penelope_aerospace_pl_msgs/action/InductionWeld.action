@@ -1,0 +1,63 @@
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition is to control the induction welding 
+#   module controlling the process of KVE composites. It concerns the 
+#   communication between the pilot line and the welding module.
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+#-------------------------------------------------------------------------------
+# Identifier for which stringer should be welded
+uint16 stringer_id
+# The tool trajecory to perfom the weld of the stringer
+trajectory_msgs/JointTrajectory weld_trajectory
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+#-------------------------------------------------------------------------------
+# Maximumum measured thermocouple temperature
+float32[] max_thermocouple_temperature
+
+# Data log file
+string log
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/ResultCodes for defined error codes.
+uint16 result_code
+
+# Status message (empty if action succeeded)
+string message
+
+---
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+#-------------------------------------------------------------------------------
+# Percentage completed of the weld
+float32 progress
+
+# Feedback from the generator indicating the current send to the welding tool
+float32 generator_current
+
+# Frequency of the generator
+float32 generator_frequency
+
+# Tool pressure
+float32 tool_pressure
+
+# Measured thermocouple temperture
+float32[] thermocouple_temperature
+
+# Welding tool speed
+float32 speed
+
+# Module specific state 
+# Refer to penelope_aerspace_pl_msgs/msg/InductionWeldingState for the state 
+# definition
+InductionWeldingState state
+
+# Generic module state
+ModuleState module_state

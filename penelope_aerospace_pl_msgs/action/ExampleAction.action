@@ -1,0 +1,33 @@
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition, is to <INSERT_PURPOSE>
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+#-------------------------------------------------------------------------------
+<GOAL_FIELDS>
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+#-------------------------------------------------------------------------------
+<RESULT_FIELDS>
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
+# Status message (empty if action succeeded)
+string message
+
+--- 
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+#-------------------------------------------------------------------------------
+<FEEDBACK_FIELDS>
+
+# Generic module state
+ModuleState module_state
