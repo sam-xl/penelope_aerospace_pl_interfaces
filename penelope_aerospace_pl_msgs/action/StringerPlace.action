@@ -1,0 +1,52 @@
+#-------------------------------------------------------------------------------
+# Accurate stringer placement
+#-------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition is to perform the closed loop 
+#   placement of the stringer onto the skin (performed by Airborne).
+#   IR driving software is set up to execute the same exact measurment 4 times. 
+#   Can halt if scenario of vibration exceeding 2mm appears. Measurement is
+#   repeatable. Each measurement should last no longer than 10 minutes. If a
+#   measurement must be broken off/halted, nothing is lost. The measurement can 
+#   simply be restarted, after a pre-defined cooling down period
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+#-------------------------------------------------------------------------------
+bool start_accurate_placement               # Execute closed loop placement of the stringer
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+#-------------------------------------------------------------------------------
+# coordinates for the final gantry position after correcting the errors
+# float[] final_position
+geometry_msgs/Pose final_position
+
+# Number of iterations to get placement within tolerance
+uint16 attempts
+
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
+# Status message (empty if action succeeded)
+string message
+
+---
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+#-------------------------------------------------------------------------------
+
+# Module specific state
+AccurateStringerPlacementState process_state
+
+# Generic module state
+ModuleState module_state
