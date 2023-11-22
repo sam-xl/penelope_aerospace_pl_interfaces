@@ -2,6 +2,9 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)  
 
 ## Overview 
+
+This branch is an implementation for the UNIMORE RoboDK simulation.
+
 ROS 2 packages with action and message definitions, intended for use with the Digital Thread of the PeneloPe Aerospace Pilot Line. This repository also includes an example action server and client for the `InfraredThermographyInspect` action that can serve as a baseline for developing the module action servers. 
 
 **Authors: E. Bernardi (SAM XL, TU Delft), D. Kroezen (SAM XL, TU Delft)**
@@ -27,7 +30,8 @@ Finally, build all packages in the workspace:
 
     colcon build
 
-A `stderr` can be shown for the `penelope_aerospace_pl_interfaces_examples` package while building the package which warns for use of a deprecated function in the `setup.py` file. This can be ignored.
+A `stderr` can be shown for the `penelope_aerospace_pl_interfaces_examples` package while building 
+the package which warns for use of a deprecated function in the `setup.py` file. This can be ignored.
 
 ## Usage
 The `penelope_aerospace_pl_interfaces_msgs` package is used as a description of the interfaces between the digital thread and the pilot line processes. 
