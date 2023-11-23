@@ -54,7 +54,7 @@ string message
 #-------------------------------------------------------------------------------
 
 # Module specific state
-AccurateStringerPlacementState process_state
+StringerPlaceState process_state
 
 # Generic module state
 ModuleState module_state
