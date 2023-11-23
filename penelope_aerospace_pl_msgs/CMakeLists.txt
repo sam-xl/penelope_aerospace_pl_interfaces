@@ -23,10 +23,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/CobotDrillingHoleArray.msg"
   "msg/CobotDrillingHoleState.msg"
   "msg/CobotDrillingState.msg"
+  "msg/StringerPlaceState.msg"
   "action/InductionWeld.action"
   "action/InfraredThermographyInspect.action"
   "action/DvmInspect.action"
   "action/CobotDrill.action"
+  "action/StringerPlace.action"
+
 
   DEPENDENCIES # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
     geometry_msgs
