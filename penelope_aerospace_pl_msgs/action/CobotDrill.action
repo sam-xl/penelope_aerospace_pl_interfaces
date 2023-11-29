@@ -13,6 +13,8 @@ SolidPrimitiveStamped allocated_space
 # Drill specifications
 CobotDrillingHoleArray holes_specification
 
+# RoboDK simulation menu selection value 
+int16 value
 ---
 
 #-------------------------------------------------------------------------------
@@ -42,6 +44,8 @@ uint16 result_code
 # Status message (empty if action succeeded)
 string message
 
+# RoboDK simulation results
+int16 result_value
 ---
 
 #-------------------------------------------------------------------------------
@@ -72,3 +76,21 @@ float32 available_sealant		        # Amount of sealant available in ml
 
 # Generic module state
 ModuleState module_state
+
+# RoboDK simulation results
+int16 feedback_value
+float64 feedback_pose_cobot
+float32 feedback_pose_cobot_x
+float32 feedback_pose_cobot_y
+float32 feedback_pose_cobot_z
+float32 feedback_joints_cobot_j1
+float32 feedback_joints_cobot_j2
+float32 feedback_joints_cobot_j3
+float32 feedback_joints_cobot_j4
+float32 feedback_joints_cobot_j5
+float32 feedback_joints_cobot_j6
+float32 feedback_amr_d1
+float32 feedback_amr_d2
+float32 feedback_amr_d3
+float32 feedback_amr_d4
+float32 feedback_cart_h

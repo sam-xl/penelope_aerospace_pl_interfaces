@@ -21,6 +21,8 @@ geometry_msgs/PoseArray[] paths
 # final position such that the sensors are within their measurement range.
 bool[] sensors_in_range
 
+#   RoboDK simulation menu selection value 
+int16 value
 ---
 
 #-------------------------------------------------------------------------------
@@ -47,6 +49,8 @@ uint16 result_code
 # Status message (empty if action succeeded)
 string message
 
+# RoboDK simulation results
+int16 result_value
 ---
 
 #-------------------------------------------------------------------------------
@@ -58,3 +62,16 @@ StringerPlaceState process_state
 
 # Generic module state
 ModuleState module_state
+
+# RoboDK simulation results
+int16 percent_complete
+int16 feedback_value
+float64 feedback_pose_gantry
+float32 feedback_pose_gantry_x
+float32 feedback_pose_gantry_y
+float32 feedback_pose_gantry_z
+float32 feedback_joints_gantry_x
+float32 feedback_joints_gantry_y
+float32 feedback_joints_gantry_z
+float32 feedback_joints_welding_beam
+float32 feedback_wrist_angle
