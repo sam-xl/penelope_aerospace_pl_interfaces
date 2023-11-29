@@ -26,6 +26,8 @@ string[] dvm_inspection_parameters # e.g. 'DVM_medium_parameters.ini'
 #   File location of the results
 string[] dvm_results_location # e.g. 'DVM_result_location.ini'
 
+#   RoboDK simulation menu selection value 
+int16 value
 ---
 
 #-------------------------------------------------------------------------------
@@ -43,6 +45,9 @@ uint16 result_code
 # Status message (empty if action succeeded)
 string message
 
+# RoboDK simulation results
+int16 result_value
+float32 total_joint_distance
 ---
 
 #-------------------------------------------------------------------------------
@@ -63,3 +68,14 @@ bool[] ndt_approved
 
 # Generic module state
 ModuleState module_state
+
+# RoboDK simulation results
+int16 feedback_value
+float64 feedback_pose_gantry
+float32 feedback_pose_gantry_x
+float32 feedback_pose_gantry_y
+float32 feedback_pose_gantry_z
+float32 feedback_joints_gantry_i
+float32 feedback_joints_gantry_j
+float32 feedback_joints_gantry_k
+float32 feedback_welding_beam_l
