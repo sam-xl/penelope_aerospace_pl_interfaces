@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 
 class FokkerActionServer(Node):
     def __init__(self):
-        super().__init__("example_action_server")
+        super().__init__("fokker_action_server")
         self._action_server = ActionServer(self, InfraredThermographyInspect, "example_action", self.execute_callback)
 
     def execute_callback(self, goal_handle):
