@@ -20,7 +20,7 @@ CobotDrillingHoleArray holes_specification
 #-------------------------------------------------------------------------------
 
 # Status of the sub-actions and the totals
-CobotDrillingHoleState[] hole_states    # Status of the sub-actions 
+CobotState[] hole_states                # Status of the sub-actions 
 uint32 n_correct                        # Number of correct sub-actions
 uint32 n_incorrect                      # Number of incorrect sub-actions
 uint32 n_cancelled                      # Number of cancelled sub-actions
@@ -55,7 +55,7 @@ float32 percent_complete	# number between 0 - 100
 SolidPrimitiveStamped occupied_space 
 
 # Status of the sub-actions and the totals
-CobotDrillingHoleState[] hole_states    # Status of the sub-actions 
+CobotState[] hole_states                # Status of the sub-actions 
 uint32 n_correct                        # Number of correct sub-actions
 uint32 n_incorrect                      # Number of incorrect sub-actions
 uint32 n_cancelled                      # Number of cancelled sub-actions
