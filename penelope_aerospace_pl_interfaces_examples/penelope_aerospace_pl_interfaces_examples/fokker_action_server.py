@@ -17,10 +17,10 @@ class FokkerActionServer(Node):
         self._action_server = ActionServer(self, CobotOp, "Cobot Operation", self.execute_callback)
 
     def execute_callback(self, goal_handle):
-        self.get_logger().info("Executing example goal...")
+        self.get_logger().info("Executing FokkerActionServer...")
 
-        ## Read goal ##
-        pose_array = goal_handle.request.measurement_poses
+        # Accessing the request data
+        holes_specification = goal_handle.request.holes_specification
         filename = goal_handle.request.config_file
 
         # ...
