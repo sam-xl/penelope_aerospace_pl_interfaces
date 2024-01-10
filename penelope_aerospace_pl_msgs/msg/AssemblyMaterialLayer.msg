@@ -1,5 +1,8 @@
 #-------------------------------------------------------------------------------
 #   Assembly Material Layer definition (GKN Fokker)
+#
+#   All locations in global axis system
+#   All dimensions in mm
 #-------------------------------------------------------------------------------
 
 string uid                              # uid of the layer
