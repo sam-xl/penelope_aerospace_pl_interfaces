@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------
 # Cobot Drilling Hole Specification (GKN Fokker)
-#   Generic specification of a hole for cobot drillin. This can be used to 
+#   Generic specification of a hole for cobot drilling. This can be used to 
 #   specify the locations to drill holes, where to place temporary fasteners, 
 #   and/or where to place permanent fasteners. 
 #-------------------------------------------------------------------------------
@@ -9,7 +9,7 @@
 geometry_msgs/Pose pose 
 
 # Hole specification
-float32 diameter                        # Diameter of the hole 
+float32 diameter                        # Diameter of the hole in mmm
 
 # Temporary fastener specifications
 bool place_temp_fastener                # Indicate if temporary fastener needs to be placed
