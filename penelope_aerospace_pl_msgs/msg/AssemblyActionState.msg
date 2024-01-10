@@ -3,7 +3,8 @@
 # Description of the Assembly Action states:
 #   RECEIVED
 #       ...
-#   ALLOCATED
+#   ACCEPTED  
+#   if all equipment is available
 #       ...
 #   IN_PROGRESS
 #       ...
@@ -17,7 +18,7 @@
 #       ...
 
 uint8 RECEIVED = 1
-uint8 ALLOCATED = 2
+uint8 ACCEPTED = 2
 uint8 IN_PROGRESS = 3
 uint8 PAUSED_WAITING = 4
 uint8 WAITING_FOR_OPERATOR_ACTION = 5

@@ -25,7 +25,7 @@ AssemblyTempFast[] tempfs                   # list of available temporary fasten
 
 AssemblyEeDockingPos[] docking_pos          # list of available docking positions for End Effectors
 
-AssemblyEe[] ee                             # list of availaable End Effectors
+AssemblyEe[] ee                             # list of available End Effectors
 
 ---
 

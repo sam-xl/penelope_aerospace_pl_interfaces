@@ -12,11 +12,9 @@ string obj_uid              # uid of the object
                             # Defines temporary fastener movement if the obj_uid is a temporary fastener object
                             # Defines a movement if the obj_uid is a waypoint
                             # Defines a permanent fastener placement if the obj_uid is a permanent fastener
+                            # Also defines which End Effector is suitable for this action
 
 string loc_uid              # uid of the target location of the object
-
-string ee_uid               # uid of the end effector to use for this action
-                            # ee_uid must fit the obj_uid (e.g. drill end effector for drill task)
                                         
 AssemblyActionState state   # Status of the action
 
