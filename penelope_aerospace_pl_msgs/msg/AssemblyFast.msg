@@ -7,7 +7,14 @@
 
 string uid                              # uid of the fastener
 
-string loc_uid                          # uid of the location of the fastener
+string loc_uid                          # uid of the location of the fastener in one of the containers
+
+string ee_uid                           # uid of the end effector needed to install this fastener
+
+AssemblyFastState state                 # The state of the fastener
+
+geometry_msgs/Pose inst_pos             # Installed location of the fastener
+                                        # Only available after installation
 
 float32 diam                            # diameter of the fastener
 float32 shaft_height                    # the height of the shaft that is sticking out when in storage location

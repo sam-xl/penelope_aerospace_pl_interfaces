@@ -10,7 +10,7 @@ string uid                              # uid of the container
 
 AssemblyHoleLocation[] locations        # List of hole locations
 
-float32 obstacle_height                 # maximum obstacle height
+float32 max_obstacle_height             # maximum obstacle height
                                         # e.g. temporary fasteners sticking out   
 
-string approach_pos_uid                 # uid of the waypoint that is the central approach position                    
+string approach_pos_uid                 # uid of the waypoint that is the central approach position

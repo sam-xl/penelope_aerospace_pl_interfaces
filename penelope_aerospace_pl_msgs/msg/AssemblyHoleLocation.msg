@@ -11,11 +11,14 @@
 string uid                              # uid of the hole position
 
 geometry_msgs/Pose nom_pos              # Nominal location of the hole
-geometry_msgs/Pose inst_pos             # Installed location of the hole
 
 float32 diam                            # Diameter of the hole
 
 float32 stack_t                         # Total thickness at the hole
                                         # Must be equal to the sum of layer thicknesses
+
+float32 drill_jig_dist                  # distance of the drill jig hole entry above the surface
+
+bool drilled                            # Whether or not the hole has been drilled
 
 AssemblyMaterialLayer[] layers          # Material definition for each layer

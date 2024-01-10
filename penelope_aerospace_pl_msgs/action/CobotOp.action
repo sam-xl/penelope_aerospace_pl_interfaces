@@ -1,74 +1,98 @@
 #-------------------------------------------------------------------------------
 # Description:
-#   The purpose of this action definition, is to <INSERT_PURPOSE>
+#   The purpose of this action definition, is to controll the Cobot system
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Action goal fields
+# Describes the goal that the client wants to achieve. 
+# It includes fields that specify the parameters of the goal.
 #-------------------------------------------------------------------------------
 
-# Box of the allocated space
-SolidPrimitiveStamped allocated_space
+AssemblyHoleLocationContainer[] storage     # list of storage location containers
 
-# Drill specifications
-CobotDrillingHoleArray holes_specification
+AssemblyHoleLocationContainer[] products    # list of product containers with holes
+
+AssemblyWaypoint[] Waypoints                # list of defined waypoints
+
+AssemblyAction[] actions                    # list of defined actions
+
+AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+
+AssemblyFast[] fasteners                    # list of available fasteners
+
+AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+
+AssemblyEeDockingPos[] docking_pos          # list of available docking positions for End Effectors
+
+AssemblyEe[] ee                             # list of availaable End Effectors
 
 ---
 
 #-------------------------------------------------------------------------------
 # Action result fields
+# Describes the result that the server sends back when the goal is completed. 
+# It includes fields that specify the outcome or information related to the execution.
 #-------------------------------------------------------------------------------
 
-# Status of the sub-actions and the totals
-CobotState[] hole_states                # Status of the sub-actions 
-uint32 n_correct                        # Number of correct sub-actions
-uint32 n_incorrect                      # Number of incorrect sub-actions
-uint32 n_cancelled                      # Number of cancelled sub-actions
-uint32 n_skipped                        # Number of skipped sub-actions (can be re-tried later)
+AssemblyAction[] actions                    # list of defined actions
+                                            # This includes the status of each action
 
-# Result of the drill request
-float32[] measured_stack                # feed * time that drill torque was above threshold
+AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+                                            # This includes current state
+                                            # This also includes updated drill jig locations
+                                            # as measured during insertion of the drill into the drill jig
 
-# Result of the permanent fastening request
-float32[] install_current		        # Motor current during fastener installation
-float32[] install_time		            # Time needed to pull each fastener
-float32[] pull_travel		            # Travel of pulling device when fastener stem breaks
-float32 available_sealant		        # Amount of sealant available in ml
+AssemblyFast[] fasteners                    # list of available fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the fastener
 
-# Action success/failure indicator.
-# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
-uint16 result_code
+AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the temporary fastener
 
-# Status message (empty if action succeeded)
+AssemblyEe[] ee                             # list of availaable End Effectors
+                                            # This includes current state and End Effector location
+
+# Status message (empty if everything according to plan)
 string message
 
 ---
 
 #-------------------------------------------------------------------------------
 # Action feedback fields
+# Describes the feedback that the server sends during the execution of the goal. 
+# It includes fields that provide ongoing information about the progress of the goal.
 #-------------------------------------------------------------------------------
 
 # Completion information
 float32 percent_complete	# number between 0 - 100
 
-# Box of the occupied_space
-SolidPrimitiveStamped occupied_space 
+AssemblyAction[] actions                    # list of defined actions
+                                            # This includes the status of each action
 
-# Status of the sub-actions and the totals
-CobotState[] hole_states                # Status of the sub-actions 
-uint32 n_correct                        # Number of correct sub-actions
-uint32 n_incorrect                      # Number of incorrect sub-actions
-uint32 n_cancelled                      # Number of cancelled sub-actions
-uint32 n_skipped                        # Number of skipped sub-actions (can be re-tried later)
+AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+                                            # This includes current state
+                                            # This also includes updated drill jig locations
+                                            # as measured during insertion of the drill into the drill jig
 
-# Result of the drill request
-float32[] measured_stack                # feed * time that drill torque was above threshold
+AssemblyFast[] fasteners                    # list of available fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the fastener
 
-# Result of the permanent fastening request
-float32[] install_current		        # Motor current during fastener installation
-float32[] install_time		            # Time needed to pull each fastener
-float32[] pull_travel		            # Travel of pulling device when fastener stem breaks
-float32 available_sealant		        # Amount of sealant available in ml
+AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the temporary fastener
+
+AssemblyEe[] ee                             # list of availaable End Effectors
+                                            # This includes current state and End Effector location
+
+# Status message (empty if everything according to plan)
+string message
 
 # Generic module state
 ModuleState module_state

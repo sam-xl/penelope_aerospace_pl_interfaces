@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------
 
-# Description of the Cobot Operation states:
+# Description of the Assembly Action states:
 #   RECEIVED
 #       ...
 #   ALLOCATED

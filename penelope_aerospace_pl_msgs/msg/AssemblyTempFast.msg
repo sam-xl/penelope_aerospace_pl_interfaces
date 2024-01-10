@@ -9,6 +9,13 @@ string uid                              # uid of the temporary fastener
 
 string loc_uid                          # uid of the location of the temporary fastener
 
+string ee_uid                           # uid of the end effector needed to manipulate this temporary fastener
+
+AssemblyFastState state                 # The state of the temporary fastener
+
+geometry_msgs/Pose inst_pos             # Installed location of the temporary fastener
+                                        # Only available after installation
+
 float32 diam                            # diameter of the temporary fastener
 
 float32 shaft_height                    # the height of the shaft that is sticking out when installed
