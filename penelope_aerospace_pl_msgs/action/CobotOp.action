@@ -13,7 +13,7 @@ AssemblyHoleLocationContainer[] storage     # list of storage location container
 
 AssemblyHoleLocationContainer[] products    # list of product containers with holes
 
-AssemblyWaypoint[] Waypoints                # list of defined waypoints
+AssemblyWaypoint[] waypoints                # list of defined waypoints
 
 AssemblyAction[] actions                    # list of defined actions
 
