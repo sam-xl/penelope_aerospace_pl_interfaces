@@ -56,6 +56,10 @@ AssemblyTempFast[] tempfs                   # list of available temporary fasten
 AssemblyEe[] ee                             # list of availaable End Effectors
                                             # This includes current state and End Effector location
 
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
 # Status message (empty if everything according to plan)
 string message
 

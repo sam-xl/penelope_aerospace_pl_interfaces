@@ -1,10 +1,21 @@
 import time
-
 import rclpy
+
 from penelope_aerospace_pl_msgs.action import CobotOp
-from penelope_aerospace_pl_msgs.msg import CobotDrillingHole
-from penelope_aerospace_pl_msgs.msg import CobotDrillingHoleArray
-from penelope_aerospace_pl_msgs.msg import CobotState
+from penelope_aerospace_pl_msgs.msg import AssemblyAction
+from penelope_aerospace_pl_msgs.msg import AssemblyActionState
+from penelope_aerospace_pl_msgs.msg import AssemblyDrill
+from penelope_aerospace_pl_msgs.msg import AssemblyEe
+from penelope_aerospace_pl_msgs.msg import AssemblyEeDockingPos
+from penelope_aerospace_pl_msgs.msg import AssemblyEeState
+from penelope_aerospace_pl_msgs.msg import AssemblyFast
+from penelope_aerospace_pl_msgs.msg import AssemblyFastState
+from penelope_aerospace_pl_msgs.msg import AssemblyHoleLocation
+from penelope_aerospace_pl_msgs.msg import AssemblyHoleLocationContainer
+from penelope_aerospace_pl_msgs.msg import AssemblyMaterialLayer
+from penelope_aerospace_pl_msgs.msg import AssemblyTempFast
+from penelope_aerospace_pl_msgs.msg import AssemblyWaypoint
+from penelope_aerospace_pl_msgs.msg import ModuleState
 from penelope_aerospace_pl_msgs.msg import ResultCodes
 from rclpy.action import ActionServer
 from rclpy.node import Node
@@ -29,25 +40,18 @@ class FokkerActionServer(Node):
         for i in range(0, 100):
             self.get_logger().info(f"Feedback itteration: {i}")
 
-            cobot_state = CobotState()
+            action_file = CobotOp()
             # ...
 
             # Create a feedback message
             feedback_msg = CobotOp.Feedback()
 
             # Fill in the feedback message
-            feedback_msg.measurement_status = list(range(0 + i, 5 + i))
 
-            # Set process state and module state
-            #   note: 2 ways to set the "child" message are shown, both can be used
-            process_state = CobotDrillingHole()
-            process_state.data = 1
-            feedback_msg.process_state = process_state
-
-            feedback_msg.module_state.data = 2
 
             # Send feedback
             goal_handle.publish_feedback(feedback_msg)
+
             time.sleep(0.1)  # Just to slow the feedback down
 
         # Indicate the action succeeded (this does not indicate succes!)
@@ -55,10 +59,6 @@ class FokkerActionServer(Node):
 
         ## Provide result ##
         result = CobotOp.Result()
-        images = [Image() for _ in range(0, 5)]  # Images are empty for the example
-
-        result.images = images
-        result.measurement_status = list(range(0, 5))
 
         # Set result code and message
         result.result_code = ResultCodes.RC_SUCCES
