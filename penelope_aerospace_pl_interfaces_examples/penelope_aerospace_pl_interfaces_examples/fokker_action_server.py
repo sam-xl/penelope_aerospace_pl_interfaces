@@ -51,7 +51,18 @@ LOWER_TORQUE_LIMIT_TAG = "lower_torque_limit("
 UPPER_TORQUE_LIMIT_TAG = "upper_torque_limit("            
 TORQUE_THRESHOLD_TAG = "torque_threshold("                      
 MAX_TEMPF_CLAMP_FORCE_TAG = "max_tempf_clamp_force("
-
+WAYPOINT_TAG = "waypoint("
+WAYPOINTS_TAG = "waypoints("
+ORIENTATION_TAG = "orientation("
+BLEND_RADIUS_TAG = "blend_radius("
+ACTIONS_TAG = "actions("
+ACTION_TAG = "action("
+OBJ_UID_TAG = "obj_uid("
+LOC_UID_TAG = "loc_uid("
+ACTION_STATE_TAG = "action_state("
+PASSING_UIDS_TAG = "passing_uids("
+PASSING_UID_TAG = "passing_uid("
+SPEED_TAG = "speed("
 
 class FokkerActionServer(Node):
     def __init__(self):
@@ -270,16 +281,77 @@ class FokkerActionServer(Node):
     # Function to send list of product containers with holes to the cobot controller
     def _send_products_to_cobot(self, products_in):
         str = PRODUCT_TAG + self._get_hole_location_container_to_cobot_str(products_in) + CLOSE_TAG
-        self._send_msg_to_cobot(str)
-        return 1
+        return self._send_msg_to_cobot(str)
 
     # Function to send list of defined waypoints to the cobot controller
     def _send_waypoints_to_cobot(self, waypoints_in):
-        return 1 
+        str = WAYPOINTS_TAG
+
+        for waypoint in waypoints_in:
+            str = str + self._get_waypoint_to_cobot_str(waypoint)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str)
+    
+    # get message string for AssemblyWaypoint
+    def _get_waypoint_to_cobot_str(self, waypoint_in):
+        str = WAYPOINT_TAG
+
+        # uid: uid of the hole Waypoint
+        str = str + UID_TAG + waypoint_in.uid + CLOSE_TAG
+
+        # pos: location of the waypoint
+        str = str + self._get_pose_str(waypoint_in.pos)
+
+        # bool: orient: whether or not the orientation is mandatory
+        str = str + ORIENTATION_TAG + waypoint_in.orient + CLOSE_TAG
+
+        # float: blend_radius: Whether the cobot movement can cut a corner when
+        # passing this waypoint.
+        str = str + BLEND_RADIUS_TAG + waypoint_in.blend_radius + CLOSE_TAG
+
+        return str + CLOSE_TAG
 
     # Function to send list of defined actions to the cobot controller
     def _send_actions_to_cobot(self, actions_in): 
-        return 1 
+        str = ACTIONS_TAG
+
+        for action in actions_in:
+            str = str + self._get_action_in_to_cobot_str(action)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+    
+    # get message string for AssemblyAction
+    def _get_action_in_to_cobot_str(self, action_in):
+        str = ACTIONS_TAG
+
+        # string uid: uid of the hole Action
+        str = str + UID_TAG + action_in.uid + CLOSE_TAG
+
+        # string obj_uid: uid of the action object to execute
+        str = str + OBJ_UID_TAG + action_in.obj_uid + CLOSE_TAG
+
+        # string loc_uid: uid of the target location of the object
+        str = str + LOC_UID_TAG + action_in.loc_uid + CLOSE_TAG
+                                        
+        # AssemblyActionState state: Status of the action
+        str = str + ACTION_STATE_TAG + action_in.state + CLOSE_TAG
+
+        # string[] passing: list of waypoints uids to pass
+        # e.g. to pass between pick up and place of a temporary fastener
+        # string loc_uid: uid of the target location of the object
+        str = str + PASSING_UIDS_TAG 
+        for passing in action_in.passing:
+            str = str + PASSING_UID_TAG + action_in.passing + CLOSE_TAG
+        str = str + CLOSE_TAG
+
+        # uint8 speed: the speed as percentage of the maximum speed
+        str = str + SPEED_TAG + action_in.speed + CLOSE_TAG
+
+        return str + CLOSE_TAG
 
     # Function to send list of holes to be drilled to the cobot controller
     def _send_drill_tasks_to_cobot(self, drill_tasks_in): 
