@@ -1,0 +1,60 @@
+#-------------------------------------------------------------------------------
+# Accurate stringer placement
+#-------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition is to perform the closed loop 
+#   placement of the stringer onto the skin (performed by Airborne).
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+#-------------------------------------------------------------------------------
+
+# One PoseArray per stringer placement. The path consists of the setpoints to 
+# reach.
+geometry_msgs/PoseArray[] paths
+
+# Indicate if the poses in the array have the end-effector close enough to the
+# final position such that the sensors are within their measurement range.
+bool[] sensors_in_range
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+#-------------------------------------------------------------------------------
+# coordinates for the final gantry position after correcting the errors
+geometry_msgs/PoseStamped final_stringer_pose
+
+# Estimated skin position resulting from the stringer placements. Every place
+# operation generates a separate estimate
+geometry_msgs/PoseStamped skin_pose_estimate
+
+# Number of iterations to get placement within tolerance
+uint16[] attempts
+
+# Placement result per stringer, corresponding to the stringer IDS in 
+# final_stringer_pose
+bool[] stringer_placement_pass
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
+# Status message (empty if action succeeded)
+string message
+
+---
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+#-------------------------------------------------------------------------------
+
+# Module specific state
+StringerPlaceState process_state
+
+# Generic module state
+ModuleState module_state
