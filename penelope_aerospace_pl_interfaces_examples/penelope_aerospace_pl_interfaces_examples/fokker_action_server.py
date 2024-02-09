@@ -1,5 +1,6 @@
 import time
 import rclpy
+import re
 
 from penelope_aerospace_pl_msgs.action import CobotOp
 from penelope_aerospace_pl_msgs.msg import AssemblyAction
@@ -21,68 +22,69 @@ from rclpy.action import ActionServer
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-CLOSE_TAG = ")"
-UID_TAG = "uid("
-STORAGE_TAG = "storage("
-PRODUCTS_TAG = "products("
-PRODUCT_TAG = "product("
-LOCATIONS_TAG = "locations("
-MAX_OBST_HEIGHT_TAG = "max_obstacle_height("
-APPR_POS_UID_TAG = "approach_pos_uid("
-HOLE_LOCATION_CONT_TAG = "hole_location_container("
-HOLE_LOCATION_TAG = "hole_location("
-POSE_TAG = "pose("
-POSE_PX_TAG = "pose_p_x("
-POSE_PY_TAG = "pose_p_y("
-POSE_PZ_TAG = "pose_p_z("
-POSE_OX_TAG = "pose_o_x("
-POSE_OY_TAG = "pose_o_y("
-POSE_OZ_TAG = "pose_o_z("
-POSE_OW_TAG = "pose_o_w("
-DIAM_TAG = "diam("
-STACK_T_TAG = "stack_thickness_tag("
-DRILL_JIG_DIST_TAG = "drill_jig_dist("
-DRILLED_TAG = "drilled("
-LAYERS_TAG = "layers("
-MAT_LAYER_TAG = "material_layer("
-LAYER_THICKNESS_TAG = "layer_thickness("  
-SHAFT_HEIGHT_TAG = "shaft_height("
-MIN_STACK_TAG = "min_stack_thickness("
-MAX_STACK_TAG = "max_stack_thickness("
-TCP_TIP_DIST_TAG = "tcp_tip_dist("
-TCP_TOP_DIST_TAG = "tcp_top_dist("                        
-DRILL_SPEED_TAG = "drill_speed("                           
-DRILL_FEED_TAG = "drill_feed("                            
-LOWER_TORQUE_LIMIT_TAG = "lower_torque_limit("             
-UPPER_TORQUE_LIMIT_TAG = "upper_torque_limit("            
-TORQUE_THRESHOLD_TAG = "torque_threshold("                      
-MAX_TEMPF_CLAMP_FORCE_TAG = "max_tempf_clamp_force("
-WAYPOINT_TAG = "waypoint("
-WAYPOINTS_TAG = "waypoints("
-ORIENTATION_TAG = "orientation("
-BLEND_RADIUS_TAG = "blend_radius("
-ACTIONS_TAG = "actions("
-ACTION_TAG = "action("
-OBJ_UID_TAG = "obj_uid("
-LOC_UID_TAG = "loc_uid("
-ACTION_STATE_TAG = "action_state("
-PASSING_UIDS_TAG = "passing_uids("
-PASSING_UID_TAG = "passing_uid("
-SPEED_TAG = "speed("
-DRILL_TASKS_TAG = "drill_tasks("
-DRILL_TASK_TAG = "drill_task("
-FASTENERS_TAG = "fasteners("
-FASTENER_TAG = "fastener("
-FASTENER_STATE_TAG = "fastener_state("
-TEMPFS_TAG = "tempfs("
-TEMPF_TAG = "tempf("
-DOCKING_POSS_TAG = "docking_positions("
-DOCKING_POS_TAG = "docking_position("
-END_EFFECTORS_TAG = "end_effectors("
-END_EFFECTOR_TAG = "end_effector("
-END_EFFECTOR_STATE_TAG = "end_effector_state("
-END_EFFECTOR_UID_TAG = "end_effector_uid("
-EXECUTE_TAG = "execute("
+OPEN_TAG = "<"
+CLOSE_TAG = ">"
+UID_TAG = "uid" + OPEN_TAG
+STORAGE_TAG = "storage" + OPEN_TAG
+PRODUCTS_TAG = "products" + OPEN_TAG
+PRODUCT_TAG = "product" + OPEN_TAG
+LOCATIONS_TAG = "locations" + OPEN_TAG
+MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
+APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
+HOLE_LOCATION_CONT_TAG = "hole_location_container" + OPEN_TAG
+HOLE_LOCATION_TAG = "hole_location" + OPEN_TAG
+POSE_TAG = "pose" + OPEN_TAG
+POSE_PX_TAG = "pose_p_x" + OPEN_TAG
+POSE_PY_TAG = "pose_p_y" + OPEN_TAG
+POSE_PZ_TAG = "pose_p_z" + OPEN_TAG
+POSE_OX_TAG = "pose_o_x" + OPEN_TAG
+POSE_OY_TAG = "pose_o_y" + OPEN_TAG
+POSE_OZ_TAG = "pose_o_z" + OPEN_TAG
+POSE_OW_TAG = "pose_o_w" + OPEN_TAG
+DIAM_TAG = "diam" + OPEN_TAG
+STACK_T_TAG = "stack_thickness_tag" + OPEN_TAG
+DRILL_JIG_DIST_TAG = "drill_jig_dist" + OPEN_TAG
+DRILLED_TAG = "drilled" + OPEN_TAG
+LAYERS_TAG = "layers" + OPEN_TAG
+MAT_LAYER_TAG = "material_layer" + OPEN_TAG
+LAYER_THICKNESS_TAG = "layer_thickness" + OPEN_TAG  
+SHAFT_HEIGHT_TAG = "shaft_height" + OPEN_TAG
+MIN_STACK_TAG = "min_stack_thickness" + OPEN_TAG
+MAX_STACK_TAG = "max_stack_thickness" + OPEN_TAG
+TCP_TIP_DIST_TAG = "tcp_tip_dist" + OPEN_TAG
+TCP_TOP_DIST_TAG = "tcp_top_dist" + OPEN_TAG                        
+DRILL_SPEED_TAG = "drill_speed" + OPEN_TAG                           
+DRILL_FEED_TAG = "drill_feed" + OPEN_TAG                            
+LOWER_TORQUE_LIMIT_TAG = "lower_torque_limit" + OPEN_TAG             
+UPPER_TORQUE_LIMIT_TAG = "upper_torque_limit" + OPEN_TAG            
+TORQUE_THRESHOLD_TAG = "torque_threshold" + OPEN_TAG                      
+MAX_TEMPF_CLAMP_FORCE_TAG = "max_tempf_clamp_force" + OPEN_TAG
+WAYPOINT_TAG = "waypoint" + OPEN_TAG
+WAYPOINTS_TAG = "waypoints" + OPEN_TAG
+ORIENTATION_TAG = "orientation" + OPEN_TAG
+BLEND_RADIUS_TAG = "blend_radius" + OPEN_TAG
+ACTIONS_TAG = "actions" + OPEN_TAG
+ACTION_TAG = "action" + OPEN_TAG
+OBJ_UID_TAG = "obj_uid" + OPEN_TAG
+LOC_UID_TAG = "loc_uid" + OPEN_TAG
+ACTION_STATE_TAG = "action_state" + OPEN_TAG
+PASSING_UIDS_TAG = "passing_uids" + OPEN_TAG
+PASSING_UID_TAG = "passing_uid" + OPEN_TAG
+SPEED_TAG = "speed" + OPEN_TAG
+DRILL_TASKS_TAG = "drill_tasks" + OPEN_TAG
+DRILL_TASK_TAG = "drill_task" + OPEN_TAG
+FASTENERS_TAG = "fasteners" + OPEN_TAG
+FASTENER_TAG = "fastener" + OPEN_TAG
+FASTENER_STATE_TAG = "fastener_state" + OPEN_TAG
+TEMPFS_TAG = "tempfs" + OPEN_TAG
+TEMPF_TAG = "tempf" + OPEN_TAG
+DOCKING_POSS_TAG = "docking_positions" + OPEN_TAG
+DOCKING_POS_TAG = "docking_position" + OPEN_TAG
+END_EFFECTORS_TAG = "end_effectors" + OPEN_TAG
+END_EFFECTOR_TAG = "end_effector" + OPEN_TAG
+END_EFFECTOR_STATE_TAG = "end_effector_state" + OPEN_TAG
+END_EFFECTOR_UID_TAG = "end_effector_uid" + OPEN_TAG
+EXECUTE_TAG = "execute" + OPEN_TAG
 
 
 class FokkerActionServer(Node):
@@ -595,15 +597,36 @@ class FokkerActionServer(Node):
     def _send_msg_to_cobot(str_in):
         #TODO send to cobot
         return 1 
+    
+    # function to get messages send by the cobot
+    def _get_str_from_cobot():
+        #TODO get from cobot
+        return "not implemented yet" 
 
     # Function to populate feedback message based on information from the cobot controller
     def _populate_feedback_message_from_cobot_output(self, feedback_msg):
-        
-        feedback_msg.actions_out = self._create_actions_from_cobot_output()  
-        feedback_msg.drill_tasks_out = self._create_drill_tasks_from_cobot_output()
-        feedback_msg.tempfs_out = self._create_tempfs_from_cobot_output()
-        feedback_msg.drill_tasks_out = self._create_fasteners_from_cobot_output()
-        feedback_msg.ee_out = self._create_ee_from_cobot_output()
+
+        c_str = self._get_str_from_cobot()
+
+        a_str = self._find_substring(c_str, ACTIONS_TAG)
+        if a_str is not None:
+            feedback_msg.actions_out = self._create_actions_from_cobot_output(a_str)  
+
+        d_str = self._find_substring(c_str, DRILL_TASKS_TAG)
+        if d_str is not None:
+            feedback_msg.drill_tasks_out = self._create_drill_tasks_from_cobot_output(d_str)
+
+        t_str = self._find_substring(c_str, TEMPFS_TAG)
+        if t_str is not None:
+            feedback_msg.tempfs_out = self._create_tempfs_from_cobot_output(t_str)
+
+        f_str = self._find_substring(c_str, FASTENERS_TAG)
+        if f_str is not None:
+            feedback_msg.drill_tasks_out = self._create_fasteners_from_cobot_output(f_str)
+
+        ee_str = self._find_substring(c_str, END_EFFECTORS_TAG)
+        if ee_str is not None:
+            feedback_msg.ee_out = self._create_ee_from_cobot_output(ee_str)
         
         feedback_msg.result_code = 1 # TODO determie sensible result_code 
         
@@ -611,28 +634,54 @@ class FokkerActionServer(Node):
 
         return 1
 
+    # function to get a substring from an original_string
+    # the substring is that part of the original_string after a search_string
+    def _find_substring(self, original_string, search_string):
+
+        # Find the position of the search string
+        position = original_string.find(search_string)
+
+        if position != -1:
+            # Extract the part of the string after the search string
+            return original_string[position + len(search_string):]
+        else:
+            return None
+
+    # function to get the content of a leaf object between open_tag and close_tag
+    # Example usage:
+    #input_string = "tag1<tag2<content1>more<tag3<content3>>>tag4<content4>"
+    #tag1_content = extract_leaf_content(input_string, "tag2<", ">")
+    def extract_leaf_content(self, input_string, open_tag, close_tag):
+        pattern = re.compile(r'{}(.*?)(?={})'.format(open_tag, close_tag), re.DOTALL)
+        match = pattern.search(input_string)
+
+        if match:
+            return match.group(1)
+        else:
+            return None
+    
     # Function to create list of defined actions based on information from the cobot controller
-    def _create_actions_from_cobot_output(self): 
+    def _create_actions_from_cobot_output(self, c_str): 
         lst = []  # [AssemblyAction]
         return lst
 
     # Function to create list of holes to be drilled based on information from the cobot controller
-    def _create_drill_tasks_from_cobot_output(self): 
+    def _create_drill_tasks_from_cobot_output(self, c_str): 
         lst = []  # [AssemblyDrill]
         return lst
 
     # Function to create list of available fasteners based on information from the cobot controller
-    def _create_fasteners_from_cobot_output(self):  
+    def _create_fasteners_from_cobot_output(self, c_str):  
         lst = []  # [AssemblyFast]
         return lst
 
     # Function to create list of available temporary fasteners based on information from the cobot controller
-    def _create_tempfs_from_cobot_output(self): 
+    def _create_tempfs_from_cobot_output(self, c_str): 
         lst = []  # [AssemblyTempFast]
         return lst
       
     # Function to create list of available End Effectors based on information from the cobot controller
-    def _create_ee_from_cobot_output(self):  
+    def _create_ee_from_cobot_output(self, c_str):  
         lst = []  # [AssemblyEe]
         return lst            
 
