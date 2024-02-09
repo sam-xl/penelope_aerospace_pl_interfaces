@@ -24,6 +24,7 @@ from sensor_msgs.msg import Image
 CLOSE_TAG = ")"
 UID_TAG = "uid("
 STORAGE_TAG = "storage("
+PRODUCTS_TAG = "products("
 PRODUCT_TAG = "product("
 LOCATIONS_TAG = "locations("
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height("
@@ -44,7 +45,12 @@ DRILL_JIG_DIST_TAG = "drill_jig_dist("
 DRILLED_TAG = "drilled("
 LAYERS_TAG = "layers("
 MAT_LAYER_TAG = "material_layer("
-LAYER_THICKNESS_TAG = "layer_thickness("                               
+LAYER_THICKNESS_TAG = "layer_thickness("  
+SHAFT_HEIGHT_TAG = "shaft_height("
+MIN_STACK_TAG = "min_stack_thickness("
+MAX_STACK_TAG = "max_stack_thickness("
+TCP_TIP_DIST_TAG = "tcp_tip_dist("
+TCP_TOP_DIST_TAG = "tcp_top_dist("                        
 DRILL_SPEED_TAG = "drill_speed("                           
 DRILL_FEED_TAG = "drill_feed("                            
 LOWER_TORQUE_LIMIT_TAG = "lower_torque_limit("             
@@ -63,6 +69,21 @@ ACTION_STATE_TAG = "action_state("
 PASSING_UIDS_TAG = "passing_uids("
 PASSING_UID_TAG = "passing_uid("
 SPEED_TAG = "speed("
+DRILL_TASKS_TAG = "drill_tasks("
+DRILL_TASK_TAG = "drill_task("
+FASTENERS_TAG = "fasteners("
+FASTENER_TAG = "fastener("
+FASTENER_STATE_TAG = "fastener_state("
+TEMPFS_TAG = "tempfs("
+TEMPF_TAG = "tempf("
+DOCKING_POSS_TAG = "docking_positions("
+DOCKING_POS_TAG = "docking_position("
+END_EFFECTORS_TAG = "end_effectors("
+END_EFFECTOR_TAG = "end_effector("
+END_EFFECTOR_STATE_TAG = "end_effector_state("
+END_EFFECTOR_UID_TAG = "end_effector_uid("
+EXECUTE_TAG = "execute("
+
 
 class FokkerActionServer(Node):
     def __init__(self):
@@ -175,8 +196,7 @@ class FokkerActionServer(Node):
     # AssemblyHoleLocationContainer
     def _send_storage_to_cobot(self, storage_in):
         str = STORAGE_TAG + self._get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
-        self._send_msg_to_cobot(str)
-        return 1
+        return self._send_msg_to_cobot(str)
 
     # get message string for AssemblyHoleLocationContainer
     def _get_hole_location_container_to_cobot_str(self, cont_in):
@@ -280,7 +300,13 @@ class FokkerActionServer(Node):
                    
     # Function to send list of product containers with holes to the cobot controller
     def _send_products_to_cobot(self, products_in):
-        str = PRODUCT_TAG + self._get_hole_location_container_to_cobot_str(products_in) + CLOSE_TAG
+        str = PRODUCTS_TAG
+
+        for product in products_in:
+            str = PRODUCT_TAG + self._get_hole_location_container_to_cobot_str(product) + CLOSE_TAG
+
+        str = str + CLOSE_TAG
+
         return self._send_msg_to_cobot(str)
 
     # Function to send list of defined waypoints to the cobot controller
@@ -318,14 +344,14 @@ class FokkerActionServer(Node):
         str = ACTIONS_TAG
 
         for action in actions_in:
-            str = str + self._get_action_in_to_cobot_str(action)
+            str = str + self._get_action_to_cobot_str(action)
 
         str = str + CLOSE_TAG
 
         return self._send_msg_to_cobot(str) 
     
     # get message string for AssemblyAction
-    def _get_action_in_to_cobot_str(self, action_in):
+    def _get_action_to_cobot_str(self, action_in):
         str = ACTIONS_TAG
 
         # string uid: uid of the hole Action
@@ -355,29 +381,212 @@ class FokkerActionServer(Node):
 
     # Function to send list of holes to be drilled to the cobot controller
     def _send_drill_tasks_to_cobot(self, drill_tasks_in): 
-        return 1
+        str = DRILL_TASKS_TAG
+
+        for drill_task in drill_tasks_in:
+            str = str + self._get_drill_task_to_cobot_str(drill_task)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+    
+    # get message string for AssemblyDrillTask
+    def _get_drill_task_to_cobot_str(self, drill_task_in):
+        str = DRILL_TASK_TAG
+
+        #string ee_uid                           # uid of the end effector needed drill this hole
+        str = str + UID_TAG + drill_task_in.uid + CLOSE_TAG
+
+        #float32 diam                            # diameter of the drill
+                                                 # for reference only because real diameter defined by ee_uid
+        str = str + DIAM_TAG + drill_task_in.diam + CLOSE_TAG
+
+        #geometry_msgs/Pose jig_pos              # Location of the drill jig drill guiding hole
+                                                 # Only available after drilling
+        str = str + self._get_pose_str(drill_task_in.jig_pos)
+
+        #AssemblyMaterialLayer[] layers          # Material layers as encountered during drilling
+                                                 # Data filled during and_or after drilling
+        str = str + LAYERS_TAG
+        for layer in drill_task_in.layers:
+            str = str + self._get_material_layer_to_cobot_str(layer)
+        str = str + CLOSE_TAG
+
+        return str + CLOSE_TAG 
 
     # Function to send list of available fasteners to the cobot controller
     def _send_fasteners_to_cobot(self, fasteners_in):  
-        return 1 
+        str = FASTENERS_TAG
+
+        for fastener in fasteners_in:
+            str = str + self._get_fastener_to_cobot_str(fastener)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+    
+    # get message string for AssemblyFastener
+    def _get_fastener_to_cobot_str(self, fastener_in):
+        str = FASTENER_TAG
+
+        #string uid                              # uid of the fastener
+        str = str + UID_TAG + fastener_in.uid + CLOSE_TAG
+
+        #string loc_uid                          # uid of the location of the fastener in one of the containers
+        str = str + LOC_UID_TAG + fastener_in.loc_uid + CLOSE_TAG
+
+        #string ee_uid                           # uid of the end effector needed to install this fastener
+        str = str + END_EFFECTOR_UID_TAG + fastener_in.ee_uid + CLOSE_TAG
+
+        #AssemblyFastState state                 # The state of the fastener
+        str = str + FASTENER_STATE_TAG + fastener_in.state + CLOSE_TAG
+
+        #geometry_msgs/Pose inst_pos             # Installed location of the fastener
+                                                 # Only available after installation
+        str = str + self._get_pose_str(fastener_in.inst_pos)
+
+        #float32 diam                            # diameter of the fastener
+        str = str + DIAM_TAG + fastener_in.diam + CLOSE_TAG
+
+        #float32 shaft_height                    # the height of the shaft that is sticking out when in storage location
+        str = str + SHAFT_HEIGHT_TAG + fastener_in.shaft_height + CLOSE_TAG
+
+        #float32 min_stack                       # the minimum stack
+        str = str + MIN_STACK_TAG + fastener_in.min_stack + CLOSE_TAG
+
+        #float32 max_stack                       # the maximum stack
+        str = str + MAX_STACK_TAG + fastener_in.max_stack + CLOSE_TAG
+
+        #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole
+        str = str + TCP_TIP_DIST_TAG + fastener_in.tcp_tip_distace + CLOSE_TAG
+
+        #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
+                                                 # the top is where the tcp is when engaging the tempf
+        str = str + TCP_TOP_DIST_TAG + fastener_in.tcp_tip_distace + CLOSE_TAG
+
+        return str + CLOSE_TAG 
 
     # Function to send list of available temporary fasteners to the cobot controller
     def _send_tempfs_to_cobot(self, tempfs_in): 
-        return 1
+        str = TEMPFS_TAG
+
+        for tempf in tempfs_in:
+            str = str + self._get_tempf_to_cobot_str(tempf)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+    
+    # get message string for AssemblyTempf
+    def _get_tempf_to_cobot_str(self, tempf_in):
+        str = TEMPF_TAG
+
+        #string uid                              # uid of the temporary fastener
+        str = str + UID_TAG + tempf_in.uid + CLOSE_TAG
+
+        #string loc_uid                          # uid of the location of the temporary fastener
+        str = str + LOC_UID_TAG + tempf_in.loc_uid + CLOSE_TAG
+
+        #string ee_uid                           # uid of the end effector needed to manipulate this temporary fastener
+        str = str + END_EFFECTOR_UID_TAG + tempf_in.ee_uid + CLOSE_TAG
+
+        #AssemblyFastState state                 # The state of the temporary fastener
+        str = str + FASTENER_STATE_TAG + tempf_in.state + CLOSE_TAG
+
+        #geometry_msgs/Pose inst_pos             # Installed location of the temporary fastener
+                                                 # Only available after installation
+        str = str + self._get_pose_str(tempf_in.inst_pos)
+
+        #float32 diam                            # diameter of the temporary fastener
+        str = str + DIAM_TAG + tempf_in.diam + CLOSE_TAG
+
+        #float32 shaft_height                    # the height of the shaft that is sticking out when installed
+        str = str + SHAFT_HEIGHT_TAG + tempf_in.shaft_height + CLOSE_TAG
+
+        #float32 min_stack                       # the minimum stack
+        str = str + MIN_STACK_TAG + tempf_in.min_stack + CLOSE_TAG
+
+        #float32 max_stack                       # the maximum stack
+        str = str + MAX_STACK_TAG + tempf_in.max_stack + CLOSE_TAG
+
+        #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole 
+        str = str + TCP_TIP_DIST_TAG + tempf_in.tcp_tip_distace + CLOSE_TAG
+
+        #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
+                                                 # the top is where the tcp is when engaging the tempf 
+        str = str + TCP_TOP_DIST_TAG + tempf_in.tcp_tip_distace + CLOSE_TAG        
+
+        return str + CLOSE_TAG 
 
     # Function to send list of available docking positions for End Effectors to the cobot controller
     def _send_docking_pos_to_cobot(self, docking_pos_in): 
-        return 1
+        str = DOCKING_POSS_TAG
+
+        for docking_pos in docking_pos_in:
+            str = str + self._get_docking_pos_to_cobot_str(docking_pos)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+    
+    # get message string for AssemblyEeDockingPos
+    def _get_docking_pos_to_cobot_str(self, docking_pos_in):
+        str = DOCKING_POS_TAG
+
+        #string uid                  # uid of the Docking Position
+        str = str + UID_TAG + docking_pos_in.uid + CLOSE_TAG
+
+        #geometry_msgs/Pose pos      # location of the Docking Position
+        str = str + self._get_pose_str(docking_pos_in.pos)
+
+        return str + CLOSE_TAG 
       
     # Function to send list of available End Effectors to the cobot controller
     def _send_ee_to_cobot(self, ee_in):  
-        return 1   
+        str = END_EFFECTORS_TAG
+
+        for ee in ee_in:
+            str = str + self._get_end_effector_to_cobot_str(ee)
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str) 
+
+    # get message string for End Effector
+    def _get_end_effector_to_cobot_str(self, ee_in):
+        str = END_EFFECTOR_TAG
+
+        #string uid                      # uid of the End Effector
+        str = str + UID_TAG + ee_in.uid + CLOSE_TAG
+
+        #string loc_uid                  # uid of the location of the End Effector in one of
+                                         # possible docking positions
+        str = str + LOC_UID_TAG + ee_in.loc_uid + CLOSE_TAG
+
+        str = str + DOCKING_POSS_TAG
+        #string[] poss_dock_pos_uids     # list of possible docking position uid's
+        for poss_docking_pos_uid in ee_in.poss_dock_pos_uids:
+            str = str + DOCKING_POS_TAG + poss_docking_pos_uid + CLOSE_TAG
+        str = str + CLOSE_TAG
+
+        #AssemblyEeState state           # The state of the End Effector
+        #uint8 STORED = 1, uint8 ON_COBOT = 2, uint8 STORED_NEED_SERVICE = 3
+        str = str + END_EFFECTOR_STATE_TAG + ee_in.state + CLOSE_TAG
+
+        return str + CLOSE_TAG  
 
     # Function to send execution commands to the cobot controller
     # Excution commands are given by sending the uid of the action
     # to be executed.
     def _send_execution_action_uid_to_cobot(self, uid_in):  
-        return 1 
+        str = EXECUTE_TAG
+
+        # uid of the action to be executed
+        str = str + UID_TAG + uid_in + CLOSE_TAG
+
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str)  
 
     # function to send a message to the cobot
     # the message will be received by the cobot controller
