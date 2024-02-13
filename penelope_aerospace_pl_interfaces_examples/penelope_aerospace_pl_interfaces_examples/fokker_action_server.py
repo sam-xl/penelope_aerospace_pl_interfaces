@@ -635,6 +635,7 @@ class FokkerActionServer(Node):
         return 1
 
     # function to get a substring from an original_string
+    # will return the string after the first search_string 
     # the substring is that part of the original_string after a search_string
     def _find_substring(self, original_string, search_string):
 
@@ -662,28 +663,170 @@ class FokkerActionServer(Node):
     
     # Function to create list of defined actions based on information from the cobot controller
     def _create_actions_from_cobot_output(self, c_str): 
+        # get the string after the first ACTION_TAG
+        a_str = self._find_substring(c_str, ACTION_TAG)
+
         lst = []  # [AssemblyAction]
+
+        while a_str is not None:
+            lst.append(self._get_action_from_str(a_str))
+            
+            # check if there is another string after an ACTION_TAG
+            a_str = self._find_substring(a_str, ACTION_TAG)
+
         return lst
 
     # Function to create list of holes to be drilled based on information from the cobot controller
     def _create_drill_tasks_from_cobot_output(self, c_str): 
+        # get the string after the first DRILL_TASK_TAG
+        d_str = self._find_substring(c_str, DRILL_TASK_TAG)
         lst = []  # [AssemblyDrill]
+
+        while d_str is not None:
+            lst.append(self._get_drill_task_from_str(d_str))
+            
+            # check if there is another string after an DRILL_TASK_TAG
+            d_str = self._find_substring(d_str, DRILL_TASK_TAG)
+
         return lst
 
     # Function to create list of available fasteners based on information from the cobot controller
-    def _create_fasteners_from_cobot_output(self, c_str):  
+    def _create_fasteners_from_cobot_output(self, c_str): 
+        # get the string after the first FASTENER_TAG
+        f_str = self._find_substring(c_str, FASTENER_TAG)
         lst = []  # [AssemblyFast]
+
+        while f_str is not None:
+            lst.append(self._get_fastener_from_str(f_str))
+            
+            # check if there is another string after an FASTENER_TAG
+            f_str = self._find_substring(f_str, FASTENER_TAG)
+
         return lst
 
     # Function to create list of available temporary fasteners based on information from the cobot controller
     def _create_tempfs_from_cobot_output(self, c_str): 
+        # get the string after the first TEMPF_TAG
+        t_str = self._find_substring(c_str, TEMPF_TAG)
         lst = []  # [AssemblyTempFast]
+
+        while t_str is not None:
+            lst.append(self._get_tempf_from_str(t_str))
+            
+            # check if there is another string after an TEMPF_TAG
+            t_str = self._find_substring(t_str, TEMPF_TAG)
+
         return lst
       
     # Function to create list of available End Effectors based on information from the cobot controller
-    def _create_ee_from_cobot_output(self, c_str):  
+    def _create_ee_from_cobot_output(self, c_str): 
+        # get the string after the first END_EFFECTOR_TAG
+        ee_str = self._find_substring(c_str, END_EFFECTOR_TAG)
         lst = []  # [AssemblyEe]
+
+        while ee_str is not None:
+            lst.append(self._get_ee_from_str(ee_str))
+            
+            # check if there is another string after an END_EFFECTOR_TAG
+            ee_str = self._find_substring(ee_str, END_EFFECTOR_TAG)
+
         return lst            
+
+    # Function to create AssemblyAction object from a string
+    def _get_action_from_str(self, c_str): 
+        # get the 'uid': 'string',
+
+        # get the 'obj_uid': 'string',
+
+        # get the 'loc_uid': 'string',
+
+        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyActionState',
+
+        # get the 'passing': 'sequence<string>',
+
+        # get the 'speed': 'uint8',
+
+        return AssemblyAction()
+    
+    # Function to create AssemblyDrill object from a string
+    def _get_drill_task_from_str(self, c_str): 
+        # get the 'uid': 'string',
+
+        # get the 'loc_uid': 'string',
+
+        # get the 'ee_uid': 'string',
+
+        # get the 'diam': 'float',
+
+        # get the 'jig_pos': 'geometry_msgs/Pose',
+
+        # get the 'layers': 'sequence<penelope_aerospace_pl_msgs/AssemblyMaterialLayer>',
+
+        return AssemblyDrill()
+    
+    # Function to create AssemblyFast object from a string
+    def _get_fastener_from_str(self, c_str): 
+        # get the 'uid': 'string',
+
+        # get the 'loc_uid': 'string',
+
+        # get the 'ee_uid': 'string',
+
+        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyFastState',
+
+        # get the 'inst_pos': 'geometry_msgs/Pose',
+
+        # get the 'diam': 'float',
+
+        # get the 'shaft_height': 'float',
+
+        # get the 'min_stack': 'float',
+
+        # get the 'max_stack': 'float',
+
+        # get the 'tcp_tip_distace': 'float',
+
+        # get the 'tcp_top_distace': 'float',
+
+        return AssemblyFast()
+    
+    # Function to create AssemblyTempFast object from a string
+    def _get_tempf_from_str(self, c_str): 
+        # get the 'uid': 'string',
+
+        # get the 'loc_uid': 'string',
+
+        # get the 'ee_uid': 'string',
+
+        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyFastState',
+
+        # get the 'inst_pos': 'geometry_msgs/Pose',
+
+        # get the 'diam': 'float',
+
+        # get the 'shaft_height': 'float',
+
+        # get the 'min_stack': 'float',
+
+        # get the 'max_stack': 'float',
+
+        # get the 'tcp_tip_distace': 'float',
+
+        # get the 'tcp_top_distace': 'float',
+
+        return AssemblyTempFast()
+    
+    # Function to create AssemblyEe object from a string
+    def _get_ee_from_str(self, c_str): 
+        # get the 'uid': 'string',
+
+        # get the 'loc_uid': 'string',
+
+        # get the 'poss_dock_pos_uids': 'sequence<string>',
+
+        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyEeState',
+        
+        return AssemblyEe()
 
 
 def main(args=None):
