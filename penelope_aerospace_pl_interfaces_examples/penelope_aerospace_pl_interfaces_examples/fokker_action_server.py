@@ -20,7 +20,7 @@ from penelope_aerospace_pl_msgs.msg import ModuleState
 from penelope_aerospace_pl_msgs.msg import ResultCodes
 from rclpy.action import ActionServer
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from geometry_msgs.msg import Pose
 
 OPEN_TAG = "<"
 CLOSE_TAG = ">"
@@ -750,19 +750,64 @@ class FokkerActionServer(Node):
     
     # Function to create AssemblyDrill object from a string
     def _get_drill_task_from_str(self, c_str): 
+        obj = AssemblyDrill()
+
         # get the 'uid': 'string',
+        obj.uid = ""
 
         # get the 'loc_uid': 'string',
+        obj.loc_uid = ""
 
         # get the 'ee_uid': 'string',
+        obj.ee_uid = ""
 
         # get the 'diam': 'float',
+        obj.diam = 0
 
         # get the 'jig_pos': 'geometry_msgs/Pose',
+        obj.pose = self._get_pose_from_str(self._find_substring(c_str, POSE_TAG))
 
         # get the 'layers': 'sequence<penelope_aerospace_pl_msgs/AssemblyMaterialLayer>',
 
-        return AssemblyDrill()
+        return obj
+    
+    # Function to create Pose object from a string
+    def _get_pose_from_str(self, c_str):
+        # Create a new Pose object
+        pose = Pose()
+
+        # Set the position (x, y, z)
+        pose.position.x = self.extract_leaf_content(c_str, POSE_PX_TAG, CLOSE_TAG)
+        pose.position.y = self.extract_leaf_content(c_str, POSE_PY_TAG, CLOSE_TAG)
+        pose.position.z = self.extract_leaf_content(c_str, POSE_PZ_TAG, CLOSE_TAG)
+
+        # Set the orientation (quaternion: x, y, z, w)
+        pose.orientation.x = self.extract_leaf_content(c_str, POSE_OX_TAG, CLOSE_TAG)
+        pose.orientation.y = self.extract_leaf_content(c_str, POSE_OY_TAG, CLOSE_TAG) 
+        pose.orientation.z = self.extract_leaf_content(c_str, POSE_OZ_TAG, CLOSE_TAG)
+        pose.orientation.w = self.extract_leaf_content(c_str, POSE_OW_TAG, CLOSE_TAG)
+
+        return pose
+
+    # Function to create AssemblyMaterialLayer object from a string
+    def _get_material_layer_from_str(self, c_str):
+        # get the 'uid': 'string',
+
+        # get the 'thickness': 'float',
+
+        # get the 'speed': 'float',
+
+        # get the 'feed': 'float',
+
+        # get the 'lower_torque_limits': 'float',
+
+        # get the 'upper_torque_limits': 'float',
+
+        # get the 'threshold': 'float',
+
+        # get the 'max_clamp_force': 'float',
+    
+        return AssemblyMaterialLayer()
     
     # Function to create AssemblyFast object from a string
     def _get_fastener_from_str(self, c_str): 
@@ -825,7 +870,7 @@ class FokkerActionServer(Node):
         # get the 'poss_dock_pos_uids': 'sequence<string>',
 
         # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyEeState',
-        
+
         return AssemblyEe()
 
 
