@@ -29,6 +29,7 @@ STORAGE_TAG = "storage" + OPEN_TAG
 PRODUCTS_TAG = "products" + OPEN_TAG
 PRODUCT_TAG = "product" + OPEN_TAG
 LOCATIONS_TAG = "locations" + OPEN_TAG
+LOC_UID_TAG = "loc_uid" + OPEN_TAG
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
 APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
 HOLE_LOCATION_CONT_TAG = "hole_location_container" + OPEN_TAG
@@ -66,7 +67,6 @@ BLEND_RADIUS_TAG = "blend_radius" + OPEN_TAG
 ACTIONS_TAG = "actions" + OPEN_TAG
 ACTION_TAG = "action" + OPEN_TAG
 OBJ_UID_TAG = "obj_uid" + OPEN_TAG
-LOC_UID_TAG = "loc_uid" + OPEN_TAG
 ACTION_STATE_TAG = "action_state" + OPEN_TAG
 PASSING_UIDS_TAG = "passing_uids" + OPEN_TAG
 PASSING_UID_TAG = "passing_uid" + OPEN_TAG
@@ -214,7 +214,7 @@ class FokkerActionServer(Node):
         str = str + CLOSE_TAG
 
         # max_obstacle_height
-        str = str + MAX_OBST_HEIGHT_TAG + cont_in.max_obstacle_height + CLOSE_TAG
+        str = str + MAX_OBST_HEIGHT_TAG + str(cont_in.max_obstacle_height) + CLOSE_TAG
 
         # approach_pos_uid
         str = str + APPR_POS_UID_TAG + cont_in.approach_pos_uid + CLOSE_TAG 
@@ -231,17 +231,17 @@ class FokkerActionServer(Node):
         str = str + self._get_pose_str(loc_in.nom_pos)             
 
         # Diameter of the hole: float32 diam
-        str = str + DIAM_TAG + loc_in.diam + CLOSE_TAG                
+        str = str + DIAM_TAG + str(loc_in.diam) + CLOSE_TAG                
 
         # Total thickness at the hole
         # Must be equal to the sum of layer thicknesses: float32 stack_t
-        str = str + STACK_T_TAG + loc_in.stack_t + CLOSE_TAG        
+        str = str + STACK_T_TAG + str(loc_in.stack_t) + CLOSE_TAG        
 
         # distance of the drill jig hole entry above the surface: float32 drill_jig_dist                  
-        str = str + DRILL_JIG_DIST_TAG + loc_in.drill_jig_dist + CLOSE_TAG
+        str = str + DRILL_JIG_DIST_TAG + str(loc_in.drill_jig_dist) + CLOSE_TAG
 
         # Whether or not the hole has been drilled: bool drilled
-        str = str + DRILLED_TAG + loc_in.drilled + CLOSE_TAG             
+        str = str + DRILLED_TAG + str(loc_in.drilled) + CLOSE_TAG             
 
         # Material definition for each layer: AssemblyMaterialLayer[] layers
         str = str + LAYERS_TAG
@@ -256,15 +256,15 @@ class FokkerActionServer(Node):
         str = POSE_TAG 
 
         # Get position
-        str = str + POSE_PX_TAG + pose_in.position.x + CLOSE_TAG
-        str = str + POSE_PY_TAG + pose_in.position.y + CLOSE_TAG
-        str = str + POSE_PZ_TAG + pose_in.position.z + CLOSE_TAG
+        str = str + POSE_PX_TAG + str(pose_in.position.x) + CLOSE_TAG
+        str = str + POSE_PY_TAG + str(pose_in.position.y) + CLOSE_TAG
+        str = str + POSE_PZ_TAG + str(pose_in.position.z) + CLOSE_TAG
 
         # Get orientation
-        str = str + POSE_OX_TAG + pose_in.orientation.x + CLOSE_TAG
-        str = str + POSE_OY_TAG + pose_in.orientation.y + CLOSE_TAG
-        str = str + POSE_OZ_TAG + pose_in.orientation.z + CLOSE_TAG
-        str = str + POSE_OW_TAG + pose_in.orientation.w + CLOSE_TAG
+        str = str + POSE_OX_TAG + str(pose_in.orientation.x) + CLOSE_TAG
+        str = str + POSE_OY_TAG + str(pose_in.orientation.y) + CLOSE_TAG
+        str = str + POSE_OZ_TAG + str(pose_in.orientation.z) + CLOSE_TAG
+        str = str + POSE_OW_TAG + str(pose_in.orientation.w) + CLOSE_TAG
 
         return str + CLOSE_TAG
     
@@ -276,27 +276,27 @@ class FokkerActionServer(Node):
         str = str + UID_TAG + layer_in.uid + CLOSE_TAG
 
         # Thickness of the layer:float32 thickness 
-        str = str + LAYER_THICKNESS_TAG + layer_in.thickness + CLOSE_TAG
+        str = str + LAYER_THICKNESS_TAG + str(layer_in.thickness) + CLOSE_TAG
 
         # Drill specifications during the drilling in this layer
         # Speed of the drill:float32 speed     
-        str = str + DRILL_SPEED_TAG+ layer_in.speed + CLOSE_TAG  
+        str = str + DRILL_SPEED_TAG + str(layer_in.speed) + CLOSE_TAG  
 
         # Feed rate of the drill:float32 feed  
-        str = str + DRILL_FEED_TAG + layer_in.feed + CLOSE_TAG 
+        str = str + DRILL_FEED_TAG + str(layer_in.feed) + CLOSE_TAG 
 
         # Lower limit(s) of the torque bandwidth(s):float32 lower_torque_limits  
-        str = str + LOWER_TORQUE_LIMIT_TAG + layer_in.lower_torque_limits + CLOSE_TAG
+        str = str + LOWER_TORQUE_LIMIT_TAG + str(layer_in.lower_torque_limits) + CLOSE_TAG
 
         # Upper limit(s) of the torque bandwidth(s):float32 upper_torque_limits  
-        str = str + UPPER_TORQUE_LIMIT_TAG + layer_in.upper_torque_limits + CLOSE_TAG  
+        str = str + UPPER_TORQUE_LIMIT_TAG + str(layer_in.upper_torque_limits) + CLOSE_TAG  
 
         # Torque level/threshold to switch to the next layer in the stack: float32 threshold 
-        str = str + TORQUE_THRESHOLD_TAG + layer_in.threshold + CLOSE_TAG 
+        str = str + TORQUE_THRESHOLD_TAG + str(layer_in.threshold) + CLOSE_TAG 
 
         # Temporary fastening specifications for this layer
         # Maximum temporary fastener clamp force:float32 max_clamp_force                 
-        str = str + MAX_TEMPF_CLAMP_FORCE_TAG + layer_in.max_clamp_force + CLOSE_TAG
+        str = str + MAX_TEMPF_CLAMP_FORCE_TAG + str(layer_in.max_clamp_force) + CLOSE_TAG
 
         return str + CLOSE_TAG
                    
@@ -333,11 +333,11 @@ class FokkerActionServer(Node):
         str = str + self._get_pose_str(waypoint_in.pos)
 
         # bool: orient: whether or not the orientation is mandatory
-        str = str + ORIENTATION_TAG + waypoint_in.orient + CLOSE_TAG
+        str = str + ORIENTATION_TAG + str(waypoint_in.orient) + CLOSE_TAG
 
         # float: blend_radius: Whether the cobot movement can cut a corner when
         # passing this waypoint.
-        str = str + BLEND_RADIUS_TAG + waypoint_in.blend_radius + CLOSE_TAG
+        str = str + BLEND_RADIUS_TAG + str(waypoint_in.blend_radius) + CLOSE_TAG
 
         return str + CLOSE_TAG
 
@@ -365,8 +365,8 @@ class FokkerActionServer(Node):
         # string loc_uid: uid of the target location of the object
         str = str + LOC_UID_TAG + action_in.loc_uid + CLOSE_TAG
                                         
-        # AssemblyActionState state: Status of the action
-        str = str + ACTION_STATE_TAG + action_in.state + CLOSE_TAG
+        # AssemblyActionState state: Status of the action (uint8)
+        str = str + ACTION_STATE_TAG + str(action_in.state) + CLOSE_TAG
 
         # string[] passing: list of waypoints uids to pass
         # e.g. to pass between pick up and place of a temporary fastener
@@ -377,7 +377,7 @@ class FokkerActionServer(Node):
         str = str + CLOSE_TAG
 
         # uint8 speed: the speed as percentage of the maximum speed
-        str = str + SPEED_TAG + action_in.speed + CLOSE_TAG
+        str = str + SPEED_TAG + str(action_in.speed) + CLOSE_TAG
 
         return str + CLOSE_TAG
 
@@ -401,7 +401,7 @@ class FokkerActionServer(Node):
 
         #float32 diam                            # diameter of the drill
                                                  # for reference only because real diameter defined by ee_uid
-        str = str + DIAM_TAG + drill_task_in.diam + CLOSE_TAG
+        str = str + DIAM_TAG + str(drill_task_in.diam) + CLOSE_TAG
 
         #geometry_msgs/Pose jig_pos              # Location of the drill jig drill guiding hole
                                                  # Only available after drilling
@@ -441,30 +441,30 @@ class FokkerActionServer(Node):
         str = str + END_EFFECTOR_UID_TAG + fastener_in.ee_uid + CLOSE_TAG
 
         #AssemblyFastState state                 # The state of the fastener
-        str = str + FASTENER_STATE_TAG + fastener_in.state + CLOSE_TAG
+        str = str + FASTENER_STATE_TAG + str(fastener_in.state) + CLOSE_TAG
 
         #geometry_msgs/Pose inst_pos             # Installed location of the fastener
                                                  # Only available after installation
         str = str + self._get_pose_str(fastener_in.inst_pos)
 
         #float32 diam                            # diameter of the fastener
-        str = str + DIAM_TAG + fastener_in.diam + CLOSE_TAG
+        str = str + DIAM_TAG + str(fastener_in.diam) + CLOSE_TAG
 
         #float32 shaft_height                    # the height of the shaft that is sticking out when in storage location
-        str = str + SHAFT_HEIGHT_TAG + fastener_in.shaft_height + CLOSE_TAG
+        str = str + SHAFT_HEIGHT_TAG + str(fastener_in.shaft_height) + CLOSE_TAG
 
         #float32 min_stack                       # the minimum stack
-        str = str + MIN_STACK_TAG + fastener_in.min_stack + CLOSE_TAG
+        str = str + MIN_STACK_TAG + str(fastener_in.min_stack) + CLOSE_TAG
 
         #float32 max_stack                       # the maximum stack
-        str = str + MAX_STACK_TAG + fastener_in.max_stack + CLOSE_TAG
+        str = str + MAX_STACK_TAG + str(fastener_in.max_stack) + CLOSE_TAG
 
         #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole
-        str = str + TCP_TIP_DIST_TAG + fastener_in.tcp_tip_distace + CLOSE_TAG
+        str = str + TCP_TIP_DIST_TAG + str(fastener_in.tcp_tip_distace) + CLOSE_TAG
 
         #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
                                                  # the top is where the tcp is when engaging the tempf
-        str = str + TCP_TOP_DIST_TAG + fastener_in.tcp_tip_distace + CLOSE_TAG
+        str = str + TCP_TOP_DIST_TAG + str(fastener_in.tcp_tip_distace) + CLOSE_TAG
 
         return str + CLOSE_TAG 
 
@@ -493,30 +493,30 @@ class FokkerActionServer(Node):
         str = str + END_EFFECTOR_UID_TAG + tempf_in.ee_uid + CLOSE_TAG
 
         #AssemblyFastState state                 # The state of the temporary fastener
-        str = str + FASTENER_STATE_TAG + tempf_in.state + CLOSE_TAG
+        str = str + FASTENER_STATE_TAG + str(tempf_in.state) + CLOSE_TAG
 
         #geometry_msgs/Pose inst_pos             # Installed location of the temporary fastener
                                                  # Only available after installation
         str = str + self._get_pose_str(tempf_in.inst_pos)
 
         #float32 diam                            # diameter of the temporary fastener
-        str = str + DIAM_TAG + tempf_in.diam + CLOSE_TAG
+        str = str + DIAM_TAG + str(tempf_in.diam) + CLOSE_TAG
 
         #float32 shaft_height                    # the height of the shaft that is sticking out when installed
-        str = str + SHAFT_HEIGHT_TAG + tempf_in.shaft_height + CLOSE_TAG
+        str = str + SHAFT_HEIGHT_TAG + str(tempf_in.shaft_height) + CLOSE_TAG
 
         #float32 min_stack                       # the minimum stack
-        str = str + MIN_STACK_TAG + tempf_in.min_stack + CLOSE_TAG
+        str = str + MIN_STACK_TAG + str(tempf_in.min_stack) + CLOSE_TAG
 
         #float32 max_stack                       # the maximum stack
-        str = str + MAX_STACK_TAG + tempf_in.max_stack + CLOSE_TAG
+        str = str + MAX_STACK_TAG + str(tempf_in.max_stack) + CLOSE_TAG
 
         #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole 
-        str = str + TCP_TIP_DIST_TAG + tempf_in.tcp_tip_distace + CLOSE_TAG
+        str = str + TCP_TIP_DIST_TAG + str(tempf_in.tcp_tip_distace) + CLOSE_TAG
 
         #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
                                                  # the top is where the tcp is when engaging the tempf 
-        str = str + TCP_TOP_DIST_TAG + tempf_in.tcp_tip_distace + CLOSE_TAG        
+        str = str + TCP_TOP_DIST_TAG + str(tempf_in.tcp_tip_distace) + CLOSE_TAG        
 
         return str + CLOSE_TAG 
 
@@ -573,7 +573,7 @@ class FokkerActionServer(Node):
 
         #AssemblyEeState state           # The state of the End Effector
         #uint8 STORED = 1, uint8 ON_COBOT = 2, uint8 STORED_NEED_SERVICE = 3
-        str = str + END_EFFECTOR_STATE_TAG + ee_in.state + CLOSE_TAG
+        str = str + END_EFFECTOR_STATE_TAG + str(ee_in.state) + CLOSE_TAG
 
         return str + CLOSE_TAG  
 
@@ -734,40 +734,69 @@ class FokkerActionServer(Node):
 
     # Function to create AssemblyAction object from a string
     def _get_action_from_str(self, c_str): 
+        obj = AssemblyAction()
+
         # get the 'uid': 'string',
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'obj_uid': 'string',
+        obj.obj_uid = self.extract_leaf_content(c_str, OBJ_UID_TAG, CLOSE_TAG)
 
         # get the 'loc_uid': 'string',
+        obj.loc_uid = self.extract_leaf_content(c_str, LOC_UID_TAG, CLOSE_TAG)
 
         # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyActionState',
+        obj.state = self.extract_leaf_content(c_str, ACTION_STATE_TAG, CLOSE_TAG)
 
         # get the 'passing': 'sequence<string>',
+        # get the string after the first PASSING_UIDS_TAG
+        p_str = self._find_substring(c_str, PASSING_UIDS_TAG)
+        lst = [] 
+
+        while p_str is not None:
+            lst.append(self.extract_leaf_content(p_str, PASSING_UID_TAG, CLOSE_TAG))
+            
+            # check if there is another string after an PASSING_UID_TAG
+            p_str = self._find_substring(p_str, PASSING_UID_TAG)
+
+        obj.passing = lst
 
         # get the 'speed': 'uint8',
+        obj.speed = int(self.extract_leaf_content(c_str, SPEED_TAG, CLOSE_TAG))
 
-        return AssemblyAction()
+        return obj
     
     # Function to create AssemblyDrill object from a string
     def _get_drill_task_from_str(self, c_str): 
         obj = AssemblyDrill()
 
         # get the 'uid': 'string',
-        obj.uid = ""
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'loc_uid': 'string',
-        obj.loc_uid = ""
+        obj.loc_uid = self.extract_leaf_content(c_str, LOC_UID_TAG, CLOSE_TAG)
 
         # get the 'ee_uid': 'string',
-        obj.ee_uid = ""
+        obj.ee_uid = self.extract_leaf_content(c_str, END_EFFECTOR_UID_TAG, CLOSE_TAG)
 
         # get the 'diam': 'float',
-        obj.diam = 0
+        obj.diam = float()
 
         # get the 'jig_pos': 'geometry_msgs/Pose',
         obj.pose = self._get_pose_from_str(self._find_substring(c_str, POSE_TAG))
 
         # get the 'layers': 'sequence<penelope_aerospace_pl_msgs/AssemblyMaterialLayer>',
+        # get the string after the first LAYERS_TAG
+        l_str = self._find_substring(c_str, LAYERS_TAG)
+        lst = [] 
+
+        while l_str is not None:
+            lst.append(self._get_material_layer_from_str(self._find_substring(l_str, MAT_LAYER_TAG)))
+            
+            # check if there is another string after an MAT_LAYER_TAG
+            l_str = self._find_substring(l_str, MAT_LAYER_TAG)
+
+        obj.layers = lst
 
         return obj
     
@@ -777,101 +806,153 @@ class FokkerActionServer(Node):
         pose = Pose()
 
         # Set the position (x, y, z)
-        pose.position.x = self.extract_leaf_content(c_str, POSE_PX_TAG, CLOSE_TAG)
-        pose.position.y = self.extract_leaf_content(c_str, POSE_PY_TAG, CLOSE_TAG)
-        pose.position.z = self.extract_leaf_content(c_str, POSE_PZ_TAG, CLOSE_TAG)
+        pose.position.x = float(self.extract_leaf_content(c_str, POSE_PX_TAG, CLOSE_TAG))
+        pose.position.y = float(self.extract_leaf_content(c_str, POSE_PY_TAG, CLOSE_TAG))
+        pose.position.z = float(self.extract_leaf_content(c_str, POSE_PZ_TAG, CLOSE_TAG))
 
         # Set the orientation (quaternion: x, y, z, w)
-        pose.orientation.x = self.extract_leaf_content(c_str, POSE_OX_TAG, CLOSE_TAG)
-        pose.orientation.y = self.extract_leaf_content(c_str, POSE_OY_TAG, CLOSE_TAG) 
-        pose.orientation.z = self.extract_leaf_content(c_str, POSE_OZ_TAG, CLOSE_TAG)
-        pose.orientation.w = self.extract_leaf_content(c_str, POSE_OW_TAG, CLOSE_TAG)
+        pose.orientation.x = float(self.extract_leaf_content(c_str, POSE_OX_TAG, CLOSE_TAG))
+        pose.orientation.y = float(self.extract_leaf_content(c_str, POSE_OY_TAG, CLOSE_TAG))
+        pose.orientation.z = float(self.extract_leaf_content(c_str, POSE_OZ_TAG, CLOSE_TAG))
+        pose.orientation.w = float(self.extract_leaf_content(c_str, POSE_OW_TAG, CLOSE_TAG))
 
         return pose
 
     # Function to create AssemblyMaterialLayer object from a string
     def _get_material_layer_from_str(self, c_str):
+        obj = AssemblyMaterialLayer()
+
         # get the 'uid': 'string',
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'thickness': 'float',
+        obj.thickness = float(self.extract_leaf_content(c_str, LAYER_THICKNESS_TAG, CLOSE_TAG))
 
         # get the 'speed': 'float',
+        obj.speed = float(self.extract_leaf_content(c_str, DRILL_SPEED_TAG, CLOSE_TAG))
 
         # get the 'feed': 'float',
+        obj.feed = float(self.extract_leaf_content(c_str, DRILL_FEED_TAG, CLOSE_TAG))
 
         # get the 'lower_torque_limits': 'float',
+        obj.lower_torque_limits = float(self.extract_leaf_content(c_str, LOWER_TORQUE_LIMIT_TAG, CLOSE_TAG))
 
         # get the 'upper_torque_limits': 'float',
+        obj.upper_torque_limits = float(self.extract_leaf_content(c_str, UPPER_TORQUE_LIMIT_TAG, CLOSE_TAG))
 
         # get the 'threshold': 'float',
+        obj.threshold = float(self.extract_leaf_content(c_str, TORQUE_THRESHOLD_TAG, CLOSE_TAG))
 
         # get the 'max_clamp_force': 'float',
+        obj.max_clamp_force = float(self.extract_leaf_content(c_str, MAX_TEMPF_CLAMP_FORCE_TAG, CLOSE_TAG))
     
-        return AssemblyMaterialLayer()
+        return obj
     
     # Function to create AssemblyFast object from a string
     def _get_fastener_from_str(self, c_str): 
+        obj = AssemblyFast()
+
         # get the 'uid': 'string',
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'loc_uid': 'string',
+        obj.loc_uid = self.extract_leaf_content(c_str, LOC_UID_TAG, CLOSE_TAG)
 
         # get the 'ee_uid': 'string',
+        obj.ee_uid = self.extract_leaf_content(c_str, END_EFFECTOR_UID_TAG, CLOSE_TAG)
 
         # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyFastState',
+        obj.state = int(self.extract_leaf_content(c_str, FASTENER_STATE_TAG, CLOSE_TAG))
 
         # get the 'inst_pos': 'geometry_msgs/Pose',
+        obj.inst_pos = self._get_pose_from_str(self._find_substring(c_str, POSE_TAG))
 
-        # get the 'diam': 'float',
+        # get the 'diam': 'float',DIAM_TAG
+        obj.diam = float(self.extract_leaf_content(c_str, DIAM_TAG, CLOSE_TAG))
 
-        # get the 'shaft_height': 'float',
+        # get the 'shaft_height': 'float',SHAFT_HEIGHT_TAG
+        obj.shaft_height = float(self.extract_leaf_content(c_str, SHAFT_HEIGHT_TAG, CLOSE_TAG))
 
-        # get the 'min_stack': 'float',
+        # get the 'min_stack': 'float',MIN_STACK_TAG
+        obj.min_stack = float(self.extract_leaf_content(c_str, MIN_STACK_TAG, CLOSE_TAG))
 
-        # get the 'max_stack': 'float',
+        # get the 'max_stack': 'float',MAX_STACK_TAG
+        obj.max_stack = float(self.extract_leaf_content(c_str, MAX_STACK_TAG, CLOSE_TAG))
 
-        # get the 'tcp_tip_distace': 'float',
+        # get the 'tcp_tip_distace': 'float',TCP_TIP_DIST_TAG
+        obj.tcp_tip_distace = float(self.extract_leaf_content(c_str, TCP_TIP_DIST_TAG, CLOSE_TAG))
 
-        # get the 'tcp_top_distace': 'float',
+        # get the 'tcp_top_distace': 'float',TCP_TOP_DIST_TAG
+        obj.tcp_top_distace = float(self.extract_leaf_content(c_str, TCP_TOP_DIST_TAG, CLOSE_TAG))
 
-        return AssemblyFast()
+        return obj
     
     # Function to create AssemblyTempFast object from a string
     def _get_tempf_from_str(self, c_str): 
+        obj = AssemblyTempFast()
+
         # get the 'uid': 'string',
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'loc_uid': 'string',
+        obj.loc_uid = self.extract_leaf_content(c_str, LOC_UID_TAG, CLOSE_TAG)
 
         # get the 'ee_uid': 'string',
+        obj.ee_uid = self.extract_leaf_content(c_str, END_EFFECTOR_UID_TAG, CLOSE_TAG)
 
         # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyFastState',
+        obj.state = int(self.extract_leaf_content(c_str, FASTENER_STATE_TAG, CLOSE_TAG))
 
         # get the 'inst_pos': 'geometry_msgs/Pose',
+        obj.inst_pos = self._get_pose_from_str(self._find_substring(c_str, POSE_TAG))
 
-        # get the 'diam': 'float',
+        # get the 'diam': 'float',DIAM_TAG
+        obj.diam = float(self.extract_leaf_content(c_str, DIAM_TAG, CLOSE_TAG))
 
-        # get the 'shaft_height': 'float',
+        # get the 'shaft_height': 'float',SHAFT_HEIGHT_TAG
+        obj.shaft_height = float(self.extract_leaf_content(c_str, SHAFT_HEIGHT_TAG, CLOSE_TAG))
 
-        # get the 'min_stack': 'float',
+        # get the 'min_stack': 'float',MIN_STACK_TAG
+        obj.min_stack = float(self.extract_leaf_content(c_str, MIN_STACK_TAG, CLOSE_TAG))
 
-        # get the 'max_stack': 'float',
+        # get the 'max_stack': 'float',MAX_STACK_TAG
+        obj.max_stack = float(self.extract_leaf_content(c_str, MAX_STACK_TAG, CLOSE_TAG))
 
-        # get the 'tcp_tip_distace': 'float',
+        # get the 'tcp_tip_distace': 'float',TCP_TIP_DIST_TAG
+        obj.tcp_tip_distace = float(self.extract_leaf_content(c_str, TCP_TIP_DIST_TAG, CLOSE_TAG))
 
-        # get the 'tcp_top_distace': 'float',
+        # get the 'tcp_top_distace': 'float',TCP_TOP_DIST_TAG
+        obj.tcp_top_distace = float(self.extract_leaf_content(c_str, TCP_TOP_DIST_TAG, CLOSE_TAG))
 
-        return AssemblyTempFast()
+        return obj
     
     # Function to create AssemblyEe object from a string
     def _get_ee_from_str(self, c_str): 
+        obj = AssemblyEe()
+
         # get the 'uid': 'string',
+        obj.uid = self.extract_leaf_content(c_str, UID_TAG, CLOSE_TAG)
 
         # get the 'loc_uid': 'string',
+        obj.loc_uid = self.extract_leaf_content(c_str, LOC_UID_TAG, CLOSE_TAG)
 
         # get the 'poss_dock_pos_uids': 'sequence<string>',
+        # get the string after the first DOCKING_POSS_TAG
+        p_str = self._find_substring(c_str, DOCKING_POSS_TAG)
+        lst = [] 
 
-        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyEeState',
+        while p_str is not None:
+            lst.append(self.extract_leaf_content(p_str, DOCKING_POS_TAG, CLOSE_TAG))
+            
+            # check if there is another string after an DOCKING_POS_TAG
+            p_str = self._find_substring(p_str, DOCKING_POS_TAG)
 
-        return AssemblyEe()
+        obj.passing = lst
+
+        # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyEeState',END_EFFECTOR_STATE_TAG
+        obj.state = int(self.extract_leaf_content(p_str, END_EFFECTOR_STATE_TAG, CLOSE_TAG))
+
+        return obj
 
 
 def main(args=None):
