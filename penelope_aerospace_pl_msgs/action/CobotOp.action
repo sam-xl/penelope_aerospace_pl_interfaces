@@ -9,23 +9,25 @@
 # It includes fields that specify the parameters of the goal.
 #-------------------------------------------------------------------------------
 
-AssemblyHoleLocationContainer[] storage     # list of storage location containers
+AssemblyHoleLocationContainer[] storage     # array of storage location containers
 
-AssemblyHoleLocationContainer[] products    # list of product containers with holes
+AssemblyHoleLocationContainer[] products    # array of product containers with holes
 
-AssemblyWaypoint[] waypoints                # list of defined waypoints
+AssemblyWaypoint[] waypoints                # array of defined waypoints
 
-AssemblyAction[] actions                    # list of defined actions
+AssemblyAction[] actions                    # array of defined actions
 
-AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
 
-AssemblyFast[] fasteners                    # list of available fasteners
+AssemblyFast[] fasteners                    # array of available fasteners
 
-AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+AssemblyTempFast[] tempfs                   # array of available temporary fasteners
 
-AssemblyEeDockingPos[] docking_pos          # list of available docking positions for End Effectors
+AssemblyEeDockingPos[] docking_pos          # array of available docking positions for End Effectors
 
-AssemblyEe[] ee                             # list of available End Effectors
+AssemblyEe[] ee                             # array of available End Effectors
+
+string[] execute                            # array of action uid's to w=execute
 
 ---
 
@@ -35,25 +37,25 @@ AssemblyEe[] ee                             # list of available End Effectors
 # It includes fields that specify the outcome or information related to the execution.
 #-------------------------------------------------------------------------------
 
-AssemblyAction[] actions                    # list of defined actions
+AssemblyAction[] actions                    # array of defined actions
                                             # This includes the status of each action
 
-AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
                                             # This includes current state
                                             # This also includes updated drill jig locations
                                             # as measured during insertion of the drill into the drill jig
 
-AssemblyFast[] fasteners                    # list of available fasteners
+AssemblyFast[] fasteners                    # array of available fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the fastener
 
-AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+AssemblyTempFast[] tempfs                   # array of available temporary fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the temporary fastener
 
-AssemblyEe[] ee                             # list of availaable End Effectors
+AssemblyEe[] ee                             # array of availaable End Effectors
                                             # This includes current state and End Effector location
 
 # Action success/failure indicator.
@@ -74,25 +76,25 @@ string message
 # Completion information
 float32 percent_complete	# number between 0 - 100
 
-AssemblyAction[] actions                    # list of defined actions
+AssemblyAction[] actions                    # array of defined actions
                                             # This includes the status of each action
 
-AssemblyDrill[] drill_tasks                 # list of holes to be drilled
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
                                             # This includes current state
                                             # This also includes updated drill jig locations
                                             # as measured during insertion of the drill into the drill jig
 
-AssemblyFast[] fasteners                    # list of available fasteners
+AssemblyFast[] fasteners                    # array of available fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the fastener
 
-AssemblyTempFast[] tempfs                   # list of available temporary fasteners
+AssemblyTempFast[] tempfs                   # array of available temporary fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the temporary fastener
 
-AssemblyEe[] ee                             # list of availaable End Effectors
+AssemblyEe[] ee                             # array of availaable End Effectors
                                             # This includes current state and End Effector location
 
 # Status message (empty if everything according to plan)

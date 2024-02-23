@@ -24,6 +24,7 @@ from geometry_msgs.msg import Pose
 
 OPEN_TAG = "<"
 CLOSE_TAG = ">"
+PROVIDE_STATUS_MSG = OPEN_TAG + "PROVIDE_STATUS" + CLOSE_TAG
 UID_TAG = "uid" + OPEN_TAG
 STORAGE_TAG = "storage" + OPEN_TAG
 PRODUCTS_TAG = "products" + OPEN_TAG
@@ -102,10 +103,10 @@ class FokkerActionServer(Node):
         # start sending the uid of the actions to the cobot 
         # to execute these actions
         action_number = 0
-        for action in goal_handle.request.actions:
+        for uid in goal_handle.request.execute:
             action_number = action_number + 1
-            self.get_logger().info(f"Start action: {action_number} " + action.uid)
-            self._send_execution_action_uid_to_cobot(action.uid)
+            self.get_logger().info(f"Start action: {action_number} " + uid)
+            self._send_execution_action_uid_to_cobot(uid)
 
             # Provide regular feedback during each execution
             iteration_number = 0
@@ -113,35 +114,38 @@ class FokkerActionServer(Node):
                 iteration_number = iteration_number + 1
                 self.get_logger().info(f"Feedback iteration: {action_number}.{iteration_number}")
 
-                action_file = CobotOp()
-                # ...
-
-                # Create a feedback message
-                feedback_msg = CobotOp.Feedback()
-
                 # Fill in the feedback message
-                self._populate_feedback_message_from_cobot_output(feedback_msg)
+                feedback_msg = self._create_feedback_message_from_cobot_output()
 
                 # Send feedback
                 goal_handle.publish_feedback(feedback_msg)
 
-                time.sleep(0.1)  # Just to slow the feedback down
+                time.sleep(0.5)  # Just to slow the feedback down
 
-                if feedback_msg.actions_out(action_number-1).state == AssemblyActionState.SUCCESS:
+                if feedback_msg.actions(action_number-1).state == AssemblyActionState.SUCCESS:
                     # Will stop the while loop and continue to the next action
                     iteration_number = -10
+
+        self.get_logger().info(f"Finished actions")
 
         # Indicate the action succeeded (this does not indicate succes!)
         goal_handle.succeed()
 
-        ## Provide result ##
-        result = CobotOp.Result()
+        # Provide result
+        return self._create_result_message_from_cobot_output()
+    
+    # Function to send execution commands to the cobot controller
+    # Excution commands are given by sending the uid of the action
+    # to be executed.
+    def _send_execution_action_uid_to_cobot(self, uid_in):  
+        str = EXECUTE_TAG
 
-        # Set result code and message
-        result.result_code = ResultCodes.RC_SUCCES
-        result.message = ResultCodes.SUCCES
+        # uid of the action to be executed
+        str = str + UID_TAG + uid_in + CLOSE_TAG
 
-        return result
+        str = str + CLOSE_TAG
+
+        return self._send_msg_to_cobot(str)  
     
     # Function to send goal_handle contents to the cobot controller
     def _send_goal_handle_to_cobot(self, goal_handle_in):
@@ -161,11 +165,6 @@ class FokkerActionServer(Node):
         func_output[2] = self._send_waypoints_to_cobot(goal_handle_in.request.waypoints)       
         if func_output[2] < 0:
             self.get_logger().info("Failed to send waypoints to cobot.")
-
-        # list of defined actions
-        func_output[3] = self._send_actions_to_cobot(goal_handle_in.request.actions)           
-        if func_output[3] < 0:
-            self.get_logger().info("Failed to send actions to cobot.")
 
         # list of holes to be drilled
         func_output[4] = self._send_drill_tasks_to_cobot(goal_handle_in.request.drill_tasks)   
@@ -191,6 +190,12 @@ class FokkerActionServer(Node):
         func_output[8] = self._send_ee_to_cobot(goal_handle_in.request.ee)                     
         if func_output[8] < 0:
             self.get_logger().info("Failed to send ee to cobot.")
+
+        # list of defined actions
+        # actions must be last because they require all other stuff to be there
+        func_output[3] = self._send_actions_to_cobot(goal_handle_in.request.actions)           
+        if func_output[3] < 0:
+            self.get_logger().info("Failed to send actions to cobot.")
 
         return min(func_output)
         
@@ -577,62 +582,128 @@ class FokkerActionServer(Node):
 
         return str + CLOSE_TAG  
 
-    # Function to send execution commands to the cobot controller
-    # Excution commands are given by sending the uid of the action
-    # to be executed.
-    def _send_execution_action_uid_to_cobot(self, uid_in):  
-        str = EXECUTE_TAG
-
-        # uid of the action to be executed
-        str = str + UID_TAG + uid_in + CLOSE_TAG
-
-        str = str + CLOSE_TAG
-
-        return self._send_msg_to_cobot(str)  
-
     # function to send a message to the cobot
     # the message will be received by the cobot controller
     # the message will be used to instantiate/popuate classes
     # in the cobot conroller
-    def _send_msg_to_cobot(str_in):
+    def _send_msg_to_cobot(self, str_in):
         #TODO send to cobot
         return 1 
     
     # function to get messages send by the cobot
-    def _get_str_from_cobot():
-        #TODO get from cobot
+    def _get_str_from_cobot(self):
+        #TODO clear the messages
+        
+        # trigger for cobot to send string with status
+        self._send_msg_to_cobot(PROVIDE_STATUS_MSG)   
+
+        #TODO wait until cobot finishes writing
+
+        #TODO get string message from cobot
         return "not implemented yet" 
 
     # Function to populate feedback message based on information from the cobot controller
-    def _populate_feedback_message_from_cobot_output(self, feedback_msg):
+    def _create_feedback_message_from_cobot_output(self):
+        
+        # Create a feedback message
+        feedback_msg = CobotOp.Feedback()
 
         c_str = self._get_str_from_cobot()
 
         a_str = self._find_substring(c_str, ACTIONS_TAG)
         if a_str is not None:
-            feedback_msg.actions_out = self._create_actions_from_cobot_output(a_str)  
+            feedback_msg.actions = self._create_actions_from_cobot_output(a_str)  
 
         d_str = self._find_substring(c_str, DRILL_TASKS_TAG)
         if d_str is not None:
-            feedback_msg.drill_tasks_out = self._create_drill_tasks_from_cobot_output(d_str)
+            feedback_msg.drill_tasks = self._create_drill_tasks_from_cobot_output(d_str)
 
         t_str = self._find_substring(c_str, TEMPFS_TAG)
         if t_str is not None:
-            feedback_msg.tempfs_out = self._create_tempfs_from_cobot_output(t_str)
+            feedback_msg.tempfs = self._create_tempfs_from_cobot_output(t_str)
 
         f_str = self._find_substring(c_str, FASTENERS_TAG)
         if f_str is not None:
-            feedback_msg.drill_tasks_out = self._create_fasteners_from_cobot_output(f_str)
+            feedback_msg.drill_tasks = self._create_fasteners_from_cobot_output(f_str)
 
         ee_str = self._find_substring(c_str, END_EFFECTORS_TAG)
         if ee_str is not None:
-            feedback_msg.ee_out = self._create_ee_from_cobot_output(ee_str)
+            feedback_msg.ee = self._create_ee_from_cobot_output(ee_str)
         
-        feedback_msg.result_code = 1 # TODO determie sensible result_code 
-        
-        feedback_msg.message = ""  # TODO make message 
+        # calculate the percentage complete
+        complete = 0
+        total_actions = 0
 
-        return 1
+        for action in feedback_msg.actions:
+            total_actions += 1
+            if action.state == AssemblyActionState.SUCCESS:
+                complete += 1
+
+        if total_actions > 0:
+            feedback_msg.percent_complete = complete / total_actions
+        else:
+            feedback_msg.percent_complete = 0.0
+
+        if total_actions > 0 and complete == 0:
+            feedback_msg.module_state = ModuleState.ACCEPTED
+        if complete > 0 and complete < total_actions:
+            feedback_msg.module_state = ModuleState.EXECUTING
+        
+        #TODO implement logic for states below
+        #feedback_msg.module_state = ModuleState.PAUSED
+        #feedback_msg.module_state = ModuleState.CANCELING
+        
+        #TODO get any relevant messages from the cobot
+        feedback_msg.message = "Not implemented yet"   
+
+        return feedback_msg
+    
+    # Function to populate feedback message based on information from the cobot controller
+    def _create_result_message_from_cobot_output(self):
+        
+        # get the string from the cobot
+        c_str = self._get_str_from_cobot()
+    
+        # Create a feedback message
+        result_msg = CobotOp.Result()
+
+        a_str = self._find_substring(c_str, ACTIONS_TAG)
+        if a_str is not None:
+            result_msg.actions_out = self._create_actions_from_cobot_output(a_str)  
+
+        d_str = self._find_substring(c_str, DRILL_TASKS_TAG)
+        if d_str is not None:
+            result_msg.drill_tasks_out = self._create_drill_tasks_from_cobot_output(d_str)
+
+        t_str = self._find_substring(c_str, TEMPFS_TAG)
+        if t_str is not None:
+            result_msg.tempfs_out = self._create_tempfs_from_cobot_output(t_str)
+
+        f_str = self._find_substring(c_str, FASTENERS_TAG)
+        if f_str is not None:
+            result_msg.drill_tasks_out = self._create_fasteners_from_cobot_output(f_str)
+
+        ee_str = self._find_substring(c_str, END_EFFECTORS_TAG)
+        if ee_str is not None:
+            result_msg.ee_out = self._create_ee_from_cobot_output(ee_str)
+        
+        # see how many actions are complete
+        complete = 0
+        total_actions = 0
+
+        for action in result_msg.actions:
+            total_actions += 1
+            if action.state == AssemblyActionState.SUCCESS:
+                complete += 1
+
+        if total_actions == complete:
+            result_msg.result_code = ResultCodes.RC_SUCCES 
+        else:
+            result_msg.result_code = ResultCodes.RC_FAILED
+
+        result_msg.message = "Not implemented yet"  # TODO get any relevant messages from the cobot
+
+        return result_msg
 
     # function to get a substring from an original_string
     # will return the string after the first search_string 
