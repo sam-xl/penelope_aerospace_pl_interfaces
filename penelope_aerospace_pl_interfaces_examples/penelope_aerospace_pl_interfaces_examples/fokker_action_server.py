@@ -1,6 +1,10 @@
 import time
 import rclpy
 import re
+import socket
+import select
+import cobot_TCP_server
+import queue
 
 from penelope_aerospace_pl_msgs.action import CobotOp
 from penelope_aerospace_pl_msgs.msg import AssemblyAction
@@ -21,6 +25,10 @@ from penelope_aerospace_pl_msgs.msg import ResultCodes
 from rclpy.action import ActionServer
 from rclpy.node import Node
 from geometry_msgs.msg import Pose
+
+HOST = '10.237.20.15'   #'127.0.0.1'  # The server's hostname or IP address
+PORT = 65432            # The port used by the server
+bytes_msg_length = 4    
 
 OPEN_TAG = "<"
 CLOSE_TAG = ">"
@@ -93,6 +101,10 @@ class FokkerActionServer(Node):
         super().__init__("fokker_action_server")
         self._action_server = ActionServer(self, CobotOp, "Cobot Operation", self.execute_callback)
 
+        message_queue = queue.Queue()
+        cobot_server = cobot_TCP_server.CobotTCPServer(self.handle_cobot_message, message_queue)
+        cobot_server.start()
+
     def execute_callback(self, goal_handle):
         self.get_logger().info("Executing FokkerActionServer...")
 
@@ -130,10 +142,14 @@ class FokkerActionServer(Node):
 
         # Indicate the action succeeded (this does not indicate succes!)
         goal_handle.succeed()
-
-        # Provide result
-        return self._create_result_message_from_cobot_output()
     
+    def handle_cobot_message(self, cobot_msg):
+        bytes_msg_length = 4
+
+        cobot_str = cobot_msg[bytes_msg_length:]
+        
+        return self._create_result_message_from_cobot_output(cobot_str)
+
     # Function to send execution commands to the cobot controller
     # Excution commands are given by sending the uid of the action
     # to be executed.
