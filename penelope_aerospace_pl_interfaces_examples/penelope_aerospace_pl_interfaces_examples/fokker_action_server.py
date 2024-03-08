@@ -16,6 +16,7 @@ from penelope_aerospace_pl_msgs.msg import ModuleState
 from penelope_aerospace_pl_msgs.msg import ResultCodes
 from rclpy.action import ActionServer
 from rclpy.node import Node
+from time import sleep
 
 
 class FokkerActionServer(Node):
@@ -23,12 +24,15 @@ class FokkerActionServer(Node):
         super().__init__("fokker_action_server")
         self._action_server = ActionServer(self, CobotOp, "Cobot Operation", self.execute_callback)
 
+        self.result_msg
+
         message_queue = queue.Queue()
         cobot_server = cobot_TCP_server.CobotTCPServer(self.handle_cobot_message, message_queue)
         cobot_server.start()    # Or run()?
 
     def execute_callback(self, goal_handle):
         self.get_logger().info("Executing FokkerActionServer...")
+        self.is_ready = False
 
         # Accessing the request data and send to cobot
         # This instantiates and populates the classes in the Cobot controller
@@ -41,11 +45,18 @@ class FokkerActionServer(Node):
             action_number = action_number + 1
             self.get_logger().info(f"Sending action number {action_number} with uid: " + uid + " to Cobot.")
             self.send_execution_action_uid_to_cobot(uid)
-
+            #TODO blocking?
+            #TODO check whether it went ok
+            
         self.get_logger().info(f"Finished passing action file to cobot.")
 
         # Indicate the action succeeded (this does not indicate succes!)
         goal_handle.succeed()
+
+        while not self.is_ready:
+            sleep(0.1)
+
+        return self.result_msg
     
     # pick up incoming messages from the Cobot and send the result response.
     def handle_cobot_message(self, cobot_msg):
@@ -58,12 +69,11 @@ class FokkerActionServer(Node):
         # Send as feedback in all cases
         self._action_server._goal_handles[-1].publish_feedback(feedback_msg)
 
-        result_msg = self._create_result_message_from_cobot_output(cobot_str)
-        # send result if ready
-        if result_msg.result_code == ResultCodes.RC_SUCCES:
+        self.result_msg = self._create_result_message_from_cobot_output(cobot_str)
         
-            self._action_server._send_result_response(result_msg)
-
+        # trigger sending result if ready
+        if self.result_msg.result_code == ResultCodes.RC_SUCCES:
+            self.is_ready = True
 
     # Function to send execution commands to the cobot controller
     # Excution commands are given by sending the uid of the action
@@ -81,55 +91,62 @@ class FokkerActionServer(Node):
     # Function to send goal_handle contents to the cobot controller
     # Sends everything to the Cobot except for the uids to execute
     def send_goal_handle_to_cobot(self, goal_handle_in):
-        func_output = [0] * 8
-
         # list of storage location containers
-        func_output[0] = self.send_msg_to_cobot(get_str_function.storage_str_to_cobot(goal_handle_in.request.storage))          
-        if func_output[0] < 0:
-            self.get_logger().info("Failed to send storage to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.storage_str_to_cobot(goal_handle_in.request.storage))          
+        if res < 0:
+            self.get_logger().error("Failed to send storage to cobot.")
+            return -1
 
         # list of product containers with holes
-        func_output[1] = self.send_msg_to_cobot(get_str_function.products_str_to_cobot(goal_handle_in.request.products))        
-        if func_output[1] < 0:
-            self.get_logger().info("Failed to send products to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.products_str_to_cobot(goal_handle_in.request.products))        
+        if res < 0:
+            self.get_logger().error("Failed to send products to cobot.")
+            return -1
 
         # list of defined waypoints
-        func_output[2] = self.send_msg_to_cobot(get_str_function.waypoints_str_to_cobot(goal_handle_in.request.waypoints))     
-        if func_output[2] < 0:
-            self.get_logger().info("Failed to send waypoints to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.waypoints_str_to_cobot(goal_handle_in.request.waypoints))     
+        if res < 0:
+            self.get_logger().error("Failed to send waypoints to cobot.")
+            return -1
 
         # list of holes to be drilled
-        func_output[4] = self.send_msg_to_cobot(get_str_function.drill_tasks_str_to_cobot(goal_handle_in.request.drill_tasks)) 
-        if func_output[4] < 0:
-            self.get_logger().info("Failed to send drill_tasks to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.drill_tasks_str_to_cobot(goal_handle_in.request.drill_tasks)) 
+        if res < 0:
+            self.get_logger().error("Failed to send drill_tasks to cobot.")
+            return -1
 
         # list of available fasteners
-        func_output[5] = self.send_msg_to_cobot(get_str_function.fasteners_str_to_cobot(goal_handle_in.request.fasteners))    
-        if func_output[5] < 0:
-            self.get_logger().info("Failed to send fasteners to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.fasteners_str_to_cobot(goal_handle_in.request.fasteners))    
+        if res < 0:
+            self.get_logger().error("Failed to send fasteners to cobot.")
+            return -1
 
         # list of available temporary fasteners
-        func_output[6] = self.send_msg_to_cobot(get_str_function.tempfs_str_to_cobot(goal_handle_in.request.tempfs))          
-        if func_output[6] < 0:
-            self.get_logger().info("Failed to send tempfs to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.tempfs_str_to_cobot(goal_handle_in.request.tempfs))          
+        if res < 0:
+            self.get_logger().error("Failed to send tempfs to cobot.")
+            return -1
 
         # list of available docking positions for End Effectors
-        func_output[7] = self.send_msg_to_cobot(get_str_function.docking_pos_str_to_cobot(goal_handle_in.request.docking_pos))
-        if func_output[7] < 0:
-            self.get_logger().info("Failed to send docking_pos to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.docking_pos_str_to_cobot(goal_handle_in.request.docking_pos))
+        if res < 0:
+            self.get_logger().error("Failed to send docking_pos to cobot.")
+            return -1
 
         # list of available End Effectors
-        func_output[8] = self.send_msg_to_cobot(get_str_function.ee_str_to_cobot(goal_handle_in.request.ee))              
-        if func_output[8] < 0:
-            self.get_logger().info("Failed to send ee to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.ee_str_to_cobot(goal_handle_in.request.ee))              
+        if res < 0:
+            self.get_logger().error("Failed to send ee to cobot.")
+            return -1
 
         # list of defined actions
         # actions must be last because they require all other stuff to be there
-        func_output[3] = self.send_msg_to_cobot(get_str_function.actions_str_to_cobot(goal_handle_in.request.actions))         
-        if func_output[3] < 0:
-            self.get_logger().info("Failed to send actions to cobot.")
+        res = self.send_msg_to_cobot(get_str_function.actions_str_to_cobot(goal_handle_in.request.actions))         
+        if res < 0:
+            self.get_logger().error("Failed to send actions to cobot.")
+            return -1
 
-        return min(func_output)     
+        return 1     
 
     # function to send a message to the cobot
     # the message will be received by the cobot controller

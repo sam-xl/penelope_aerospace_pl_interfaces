@@ -42,8 +42,6 @@ TORQUE_THRESHOLD_TAG = "torque_threshold" + OPEN_TAG
 MAX_TEMPF_CLAMP_FORCE_TAG = "max_tempf_clamp_force" + OPEN_TAG
 WAYPOINT_TAG = "waypoint" + OPEN_TAG
 WAYPOINTS_TAG = "waypoints" + OPEN_TAG
-ORIENTATION_TAG = "orientation" + OPEN_TAG
-BLEND_RADIUS_TAG = "blend_radius" + OPEN_TAG
 ACTIONS_TAG = "actions" + OPEN_TAG
 ACTION_TAG = "action" + OPEN_TAG
 OBJ_UID_TAG = "obj_uid" + OPEN_TAG
@@ -356,13 +354,6 @@ def _get_waypoint_to_cobot_str(waypoint_in):
 
     # pos: location of the waypoint
     str = str + _get_pose_str(waypoint_in.pos)
-
-    # bool: orient: whether or not the orientation is mandatory
-    str = str + ORIENTATION_TAG + str(waypoint_in.orient) + CLOSE_TAG
-
-    # float: blend_radius: Whether the cobot movement can cut a corner when
-    # passing this waypoint.
-    str = str + BLEND_RADIUS_TAG + str(waypoint_in.blend_radius) + CLOSE_TAG
 
     return str + CLOSE_TAG
     

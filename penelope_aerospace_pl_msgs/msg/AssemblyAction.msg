@@ -5,6 +5,8 @@
 #   All dimensions in mm
 #-------------------------------------------------------------------------------
 
+#TODO ACTION_TYPE_TAG
+
 string uid                  # uid of the hole Action
 
 string obj_uid              # uid of the object
