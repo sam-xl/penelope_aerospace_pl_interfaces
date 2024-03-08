@@ -1,5 +1,7 @@
 import get_str_function  
 import re  
+import math
+import numpy as np
 
 from penelope_aerospace_pl_msgs.msg import AssemblyAction
 from penelope_aerospace_pl_msgs.msg import AssemblyDrill
@@ -8,6 +10,126 @@ from penelope_aerospace_pl_msgs.msg import AssemblyFast
 from penelope_aerospace_pl_msgs.msg import AssemblyMaterialLayer
 from penelope_aerospace_pl_msgs.msg import AssemblyTempFast
 from geometry_msgs.msg import Pose
+
+def R_matrix_to_quaternion(matrix, isprecise=False):
+    """Return quaternion from rotation matrix.
+    If isprecise is True, the input matrix is assumed to be a precise rotation
+    matrix and a faster algorithm is used.
+    >>> q = quaternion_from_matrix(np.identity(4), True)
+    >>> np.allclose(q, [1, 0, 0, 0])
+    True
+    >>> q = quaternion_from_matrix(np.diag([1, -1, -1, 1]))
+    >>> np.allclose(q, [0, 1, 0, 0]) or np.allclose(q, [0, -1, 0, 0])
+    True
+    >>> R = rotation_matrix(0.123, (1, 2, 3))
+    >>> q = quaternion_from_matrix(R, True)
+    >>> np.allclose(q, [0.9981095, 0.0164262, 0.0328524, 0.0492786])
+    True
+    >>> R = [[-0.545, 0.797, 0.260, 0], [0.733, 0.603, -0.313, 0],
+    ...      [-0.407, 0.021, -0.913, 0], [0, 0, 0, 1]]
+    >>> q = quaternion_from_matrix(R)
+    >>> np.allclose(q, [0.19069, 0.43736, 0.87485, -0.083611])
+    True
+    >>> R = [[0.395, 0.362, 0.843, 0], [-0.626, 0.796, -0.056, 0],
+    ...      [-0.677, -0.498, 0.529, 0], [0, 0, 0, 1]]
+    >>> q = quaternion_from_matrix(R)
+    >>> np.allclose(q, [0.82336615, -0.13610694, 0.46344705, -0.29792603])
+    True
+    >>> R = random_rotation_matrix()
+    >>> q = quaternion_from_matrix(R)
+    >>> is_same_transform(R, quaternion_matrix(q))
+    True
+    >>> is_same_quaternion(quaternion_from_matrix(R, isprecise=False),
+    ...                    quaternion_from_matrix(R, isprecise=True))
+    True
+    >>> R = euler_matrix(0.0, 0.0, np.pi/2.0)
+    >>> is_same_quaternion(quaternion_from_matrix(R, isprecise=False),
+    ...                    quaternion_from_matrix(R, isprecise=True))
+    True
+    """
+    M = np.array(matrix, dtype=np.float64, copy=False)[:3, :3]
+    if isprecise:
+        q = np.empty((4,))
+        t = np.trace(M) + 1
+        if t > 1:
+            q[0] = t
+            q[3] = M[1, 0] - M[0, 1]
+            q[2] = M[0, 2] - M[2, 0]
+            q[1] = M[2, 1] - M[1, 2]
+        else:
+            i, j, k = 0, 1, 2
+            if M[1, 1] > M[0, 0]:
+                i, j, k = 1, 2, 0
+            if M[2, 2] > M[i, i]:
+                i, j, k = 2, 0, 1
+            t = M[i, i] - (M[j, j] + M[k, k]) + 1
+            q[i] = t
+            q[j] = M[i, j] + M[j, i]
+            q[k] = M[k, i] + M[i, k]
+            q[3] = M[k, j] - M[j, k]
+            q = q[[3, 0, 1, 2]]
+        q *= 0.5 / math.sqrt(t * 1)
+    else:
+        m00 = M[0, 0]
+        m01 = M[0, 1]
+        m02 = M[0, 2]
+        m10 = M[1, 0]
+        m11 = M[1, 1]
+        m12 = M[1, 2]
+        m20 = M[2, 0]
+        m21 = M[2, 1]
+        m22 = M[2, 2]
+        # symmetric matrix K
+        K = np.array(
+            [
+                [m00 - m11 - m22, 0.0, 0.0, 0.0],
+                [m01 + m10, m11 - m00 - m22, 0.0, 0.0],
+                [m02 + m20, m12 + m21, m22 - m00 - m11, 0.0],
+                [m21 - m12, m02 - m20, m10 - m01, m00 + m11 + m22],
+            ]
+        )
+        K /= 3.0
+        # quaternion is eigenvector of K that corresponds to largest eigenvalue
+        w, V = np.linalg.eigh(K)
+        q = V[[3, 0, 1, 2], np.argmax(w)]
+    if q[0] < 0.0:
+        np.negative(q, q)
+    return q
+
+def DRL_angles_to_R_matrix(theta):
+    """
+    theta: ordered list of DRL w p r rotations
+    """
+    #transform theta in radians
+    theta = np.array(theta)
+    theta = theta * 3.14159265358979323846 / 180.
+
+    I = np.eye(3)
+    #Calculate rotation matrix about z-axis
+    Rw = np.array((
+        [math.cos(theta[0]), -math.sin(theta[0]) ,  0],
+        [math.sin(theta[0]),  math.cos(theta[0]) ,  0],
+        [      0      ,       0        ,  1]))
+    
+    #Calculate rotation matrix about rotated y-axis   
+    y_rot = np.array( (Rw[0,1], Rw[1,1], Rw[2,1]) )
+    Kp = np.array([
+        [     0    , -y_rot[2] ,  y_rot[1]],
+        [ y_rot[2] ,     0     , -y_rot[0]],
+        [-y_rot[1] ,  y_rot[0] ,      0   ]])
+    Rp = I + math.sin(theta[1])*Kp + (1-math.cos(theta[1]))*( np.matmul(Kp, Kp ))
+    
+    #Calculate rotation about twice rotated z-axis
+    z_rot_rot = np.array( (Rp[0,2], Rp[1,2], Rp[2,2]) )
+    Kr = np.array([
+                [     0        , -z_rot_rot[2] ,  z_rot_rot[1]],
+                [ z_rot_rot[2] ,       0       , -z_rot_rot[0]],
+                [-z_rot_rot[1] ,  z_rot_rot[0] ,        0     ]])
+    Rr = I + math.sin(theta[2])*Kr + (1-math.cos(theta[2]))*( np.matmul(Kr, Kr))
+                
+    #Combined rotation matrix
+    R = np.matmul(Rr, np.matmul(Rp, Rw))
+    return R
 
 # function to get a substring from an original_string
 # will return the string after the first search_string 
@@ -178,6 +300,7 @@ def _get_drill_task_from_str(c_str):
 
 # Function to create Pose object from a string
 def _get_pose_from_str(c_str):
+
     # Create a new Pose object
     pose = Pose()
 
@@ -186,11 +309,18 @@ def _get_pose_from_str(c_str):
     pose.position.y = float(extract_leaf_content(c_str, get_str_function.POSE_PY_TAG, get_str_function.CLOSE_TAG))
     pose.position.z = float(extract_leaf_content(c_str, get_str_function.POSE_PZ_TAG, get_str_function.CLOSE_TAG))
 
-    # Set the orientation (quaternion: x, y, z, w)
-    pose.orientation.x = float(extract_leaf_content(c_str, get_str_function.POSE_OX_TAG, get_str_function.CLOSE_TAG))
-    pose.orientation.y = float(extract_leaf_content(c_str, get_str_function.POSE_OY_TAG, get_str_function.CLOSE_TAG))
-    pose.orientation.z = float(extract_leaf_content(c_str, get_str_function.POSE_OZ_TAG, get_str_function.CLOSE_TAG))
-    pose.orientation.w = float(extract_leaf_content(c_str, get_str_function.POSE_OW_TAG, get_str_function.CLOSE_TAG))
+    #get the DRL angles
+    rotx = float(extract_leaf_content(c_str, get_str_function.POSE_OX_TAG, get_str_function.CLOSE_TAG))
+    roty = float(extract_leaf_content(c_str, get_str_function.POSE_OY_TAG, get_str_function.CLOSE_TAG))
+    rotz = float(extract_leaf_content(c_str, get_str_function.POSE_OZ_TAG, get_str_function.CLOSE_TAG))
+
+    # Calculate the orientation (quaternion: x, y, z, w)
+    quat =  R_matrix_to_quaternion(DRL_angles_to_R_matrix((rotx, roty, rotz)))
+
+    pose.orientation.x = quat[0]
+    pose.orientation.y = quat[1]
+    pose.orientation.z = quat[2]
+    pose.orientation.w = quat[3]
 
     return pose
 

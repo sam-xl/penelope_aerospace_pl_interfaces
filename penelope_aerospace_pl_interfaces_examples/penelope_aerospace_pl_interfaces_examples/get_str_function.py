@@ -1,8 +1,12 @@
+import numpy as np
+import math
+
 OPEN_TAG = "<"
 CLOSE_TAG = ">"
 PROVIDE_STATUS_MSG = OPEN_TAG + "PROVIDE_STATUS" + CLOSE_TAG
 UID_TAG = "uid" + OPEN_TAG
-STORAGE_TAG = "storage" + OPEN_TAG
+STORAGE_LOCS_TAG = "storage_locs" + OPEN_TAG
+STORAGE_LOC_TAG = "storage_loc" + OPEN_TAG
 PRODUCTS_TAG = "products" + OPEN_TAG
 PRODUCT_TAG = "product" + OPEN_TAG
 LOCATIONS_TAG = "locations" + OPEN_TAG
@@ -18,7 +22,6 @@ POSE_PZ_TAG = "pose_p_z" + OPEN_TAG
 POSE_OX_TAG = "pose_o_x" + OPEN_TAG
 POSE_OY_TAG = "pose_o_y" + OPEN_TAG
 POSE_OZ_TAG = "pose_o_z" + OPEN_TAG
-POSE_OW_TAG = "pose_o_w" + OPEN_TAG
 DIAM_TAG = "diam" + OPEN_TAG
 STACK_T_TAG = "stack_thickness_tag" + OPEN_TAG
 DRILL_JIG_DIST_TAG = "drill_jig_dist" + OPEN_TAG
@@ -63,11 +66,93 @@ END_EFFECTOR_STATE_TAG = "end_effector_state" + OPEN_TAG
 END_EFFECTOR_UID_TAG = "end_effector_uid" + OPEN_TAG
 EXECUTE_TAG = "execute" + OPEN_TAG
 
-   
+
+def quaternion_to_R_matrix(quaternion):
+    """Return rotation matrix from quaternion.
+    >>> M = quaternion_matrix([0.99810947, 0.06146124, 0, 0])
+    >>> np.allclose(M, rotation_matrix(0.123, [1, 0, 0]))
+    True
+    >>> M = quaternion_matrix([1, 0, 0, 0])
+    >>> np.allclose(M, np.identity(4))
+    True
+    >>> M = quaternion_matrix([0, 1, 0, 0])
+    >>> np.allclose(M, np.diag([1, -1, -1, 1]))
+    True
+    """
+    _EPS = np.finfo(float).eps * 4.0 # epsilon for testing whether a number is close to zero
+
+    q = np.array(quaternion, dtype=np.float64, copy=True)
+    n = np.dot(q, q)
+    if n < _EPS:
+        return np.identity(3)
+    q *= math.sqrt(2.0 / n)
+    q = np.outer(q, q)
+    return np.array(
+        [
+            [
+                1.0 - q[2, 2] - q[3, 3],
+                q[1, 2] - q[3, 0],
+                q[1, 3] + q[2, 0],
+            ],
+            [
+                q[1, 2] + q[3, 0],
+                1.0 - q[1, 1] - q[3, 3],
+                q[2, 3] - q[1, 0],
+            ],
+            [
+                q[1, 3] - q[2, 0],
+                q[2, 3] + q[1, 0],
+                1.0 - q[1, 1] - q[2, 2],
+            ],
+        ]
+    )
+
+
+
+
+def R_matrix_to_DRL_angles(R):
+    """
+    returns list with DRL angles
+    """
+
+    zero_tolerance = 0.001
+
+    # check if p == 0
+    if abs(R[0,2]) < zero_tolerance and abs(R[1,2]) < zero_tolerance: # p ==0 or p == pi
+
+        if R[2,2] > 0: # p==0 (R[2,2] should be close to 1 in this case)
+            p = 0 
+            r = 0
+            w = math.atan2 (R[1,0], R[1,1])
+        else: # p==pi (R[2,2] should be close to -1 in this case)
+            p = math.pi 
+            r = 0
+            w = math.atan2 (-R[1,0], R[1,1])
+
+    else:
+        
+        # with the formulas below, we get either (w,p,r) or (w+pi,-p,r+pi). It does not matter which, as they result in the same rotation
+        p = math.atan2( math.sqrt( R[2,0]**2. + R[2,1]**2.) , R[2,2] ) #atan2 finds the angle in the correct quadrante
+        w = math.atan2( R[1,2] / math.sin(p) , R[0,2] / math.sin(p) )
+        r = math.atan2( R[2,1] / math.sin(p) , -1*R[2,0] / math.sin(p) )
+
+    p *= (180. / math.pi)
+    r *= (180. / math.pi)
+    w *= (180. / math.pi)
+
+    return [w, p, r]
+
+
 # Function to send list of storage location containers to the cobot controller
 # AssemblyHoleLocationContainer
-def storage_str_to_cobot(storage_in):
-    str = STORAGE_TAG + _get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
+def storage_str_to_cobot(storages_in):
+    str = STORAGE_LOCS_TAG
+
+    for storage_in in storages_in:
+        str = STORAGE_LOC_TAG + _get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
+
+    str = str + CLOSE_TAG
+
     return str
 
 # Function to send list of product containers with holes to the cobot controller
@@ -212,6 +297,10 @@ def _get_hole_location_to_cobot_str(loc_in):
 
 # get message string for geometry_msgs/Pose
 def _get_pose_str(pose_in):
+
+    # message to the cobot must be in cobot format
+    rot_vect = R_matrix_to_DRL_angles(quaternion_to_R_matrix(pose_in.orientation))
+
     str = POSE_TAG 
 
     # Get position
@@ -220,10 +309,9 @@ def _get_pose_str(pose_in):
     str = str + POSE_PZ_TAG + str(pose_in.position.z) + CLOSE_TAG
 
     # Get orientation
-    str = str + POSE_OX_TAG + str(pose_in.orientation.x) + CLOSE_TAG
-    str = str + POSE_OY_TAG + str(pose_in.orientation.y) + CLOSE_TAG
-    str = str + POSE_OZ_TAG + str(pose_in.orientation.z) + CLOSE_TAG
-    str = str + POSE_OW_TAG + str(pose_in.orientation.w) + CLOSE_TAG
+    str = str + POSE_OX_TAG + str(rot_vect[0]) + CLOSE_TAG
+    str = str + POSE_OY_TAG + str(rot_vect[1]) + CLOSE_TAG
+    str = str + POSE_OZ_TAG + str(rot_vect[2]) + CLOSE_TAG
 
     return str + CLOSE_TAG
 
