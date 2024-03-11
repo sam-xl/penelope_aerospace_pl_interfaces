@@ -237,8 +237,8 @@ def _get_action_from_str(c_str):
     # get the 'uid': 'string',
     obj.uid = extract_leaf_content(c_str, get_str_function.UID_TAG, get_str_function.CLOSE_TAG)
 
-    # get the 'obj_uid': 'string',
-    obj.obj_uid = extract_leaf_content(c_str, get_str_function.OBJ_UID_TAG, get_str_function.CLOSE_TAG)
+    # get the 'a_type': 'string',
+    obj.a_type = extract_leaf_content(c_str, get_str_function.A_TYPE_TAG, get_str_function.CLOSE_TAG)
 
     # get the 'loc_uid': 'string',
     obj.loc_uid = extract_leaf_content(c_str, get_str_function.LOC_UID_TAG, get_str_function.CLOSE_TAG)

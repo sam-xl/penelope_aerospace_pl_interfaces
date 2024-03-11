@@ -44,7 +44,7 @@ WAYPOINT_TAG = "waypoint" + OPEN_TAG
 WAYPOINTS_TAG = "waypoints" + OPEN_TAG
 ACTIONS_TAG = "actions" + OPEN_TAG
 ACTION_TAG = "action" + OPEN_TAG
-OBJ_UID_TAG = "obj_uid" + OPEN_TAG
+A_TYPE_TAG = "action_type" + OPEN_TAG
 ACTION_STATE_TAG = "action_state" + OPEN_TAG
 PASSING_UIDS_TAG = "passing_uids" + OPEN_TAG
 PASSING_UID_TAG = "passing_uid" + OPEN_TAG
@@ -364,8 +364,8 @@ def _get_action_to_cobot_str(action_in):
     # string uid: uid of the hole Action
     str = str + UID_TAG + action_in.uid + CLOSE_TAG
 
-    # string obj_uid: uid of the action object to execute
-    str = str + OBJ_UID_TAG + action_in.obj_uid + CLOSE_TAG
+    # string a_type: uid of the action object to execute
+    str = str + A_TYPE_TAG + action_in.a_type + CLOSE_TAG
 
     # string loc_uid: uid of the target location of the object
     str = str + LOC_UID_TAG + action_in.loc_uid + CLOSE_TAG

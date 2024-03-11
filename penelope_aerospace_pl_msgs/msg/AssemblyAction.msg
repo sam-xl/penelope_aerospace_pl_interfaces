@@ -9,12 +9,10 @@
 
 string uid                  # uid of the hole Action
 
-string obj_uid              # uid of the object
-                            # Defines drilling action if the obj_uid is a drill object
-                            # Defines temporary fastener movement if the obj_uid is a temporary fastener object
-                            # Defines a movement if the obj_uid is a waypoint
-                            # Defines a permanent fastener placement if the obj_uid is a permanent fastener
-                            # Also defines which End Effector is suitable for this action
+string a_type               # type of action
+                            # ACTION_TYPE_MOVE_WAYPOINT = "move_to_waypoint"   
+                            # ACTION_TYPE_INSTALL = "install_fastener"  
+                            # ACTION_TYPE_REMOVE = "remove_fastener"  
 
 string loc_uid              # uid of the target location of the object
                                         
