@@ -21,7 +21,7 @@ AssemblyDrill[] drill_tasks                 # array of holes to be drilled
 
 AssemblyFast[] fasteners                    # array of available fasteners
 
-AssemblyTempFast[] tempfs                   # array of available temporary fasteners
+AssemblyFast[] tempfs                       # array of available temporary fasteners
 
 AssemblyEeDockingPos[] docking_pos          # array of available docking positions for End Effectors
 
@@ -50,7 +50,7 @@ AssemblyFast[] fasteners                    # array of available fasteners
                                             # This also includes updated installation locations
                                             # as measured during installation of the fastener
 
-AssemblyTempFast[] tempfs                   # array of available temporary fasteners
+AssemblyFast[] tempfs                       # array of available temporary fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the temporary fastener
@@ -89,7 +89,7 @@ AssemblyFast[] fasteners                    # array of available fasteners
                                             # This also includes updated installation locations
                                             # as measured during installation of the fastener
 
-AssemblyTempFast[] tempfs                   # array of available temporary fasteners
+AssemblyFast[] tempfs                       # array of available temporary fasteners
                                             # This includes current state and location
                                             # This also includes updated installation locations
                                             # as measured during installation of the temporary fastener

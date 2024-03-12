@@ -203,7 +203,7 @@ def fasteners_str_to_cobot(fasteners_in):
     str = FASTENERS_TAG
 
     for fastener in fasteners_in:
-        str = str + _get_fastener_to_cobot_str(fastener)
+        str = str + FASTENER_TAG + _get_fastener_to_cobot_str(fastener) + CLOSE_TAG
 
     str = str + CLOSE_TAG
 
@@ -214,7 +214,7 @@ def tempfs_str_to_cobot(tempfs_in):
     str = TEMPFS_TAG
 
     for tempf in tempfs_in:
-        str = str + _get_tempf_to_cobot_str(tempf)
+        str = str + TEMPF_TAG + _get_fastener_to_cobot_str(tempf) + CLOSE_TAG
 
     str = str + CLOSE_TAG
 
@@ -411,9 +411,9 @@ def _get_drill_task_to_cobot_str(drill_task_in):
     return str + CLOSE_TAG 
 
 # get message string for AssemblyFastener
+# Assumes the open and close tag are already there
 def _get_fastener_to_cobot_str(fastener_in):
-    str = FASTENER_TAG
-
+    
     #string uid                              # uid of the fastener
     str = str + UID_TAG + fastener_in.uid + CLOSE_TAG
 
@@ -449,48 +449,7 @@ def _get_fastener_to_cobot_str(fastener_in):
                                                 # the top is where the tcp is when engaging the tempf
     str = str + TCP_TOP_DIST_TAG + str(fastener_in.tcp_tip_distace) + CLOSE_TAG
 
-    return str + CLOSE_TAG 
-
-# get message string for AssemblyTempf
-def _get_tempf_to_cobot_str(tempf_in):
-    str = TEMPF_TAG
-
-    #string uid                              # uid of the temporary fastener
-    str = str + UID_TAG + tempf_in.uid + CLOSE_TAG
-
-    #string loc_uid                          # uid of the location of the temporary fastener
-    str = str + LOC_UID_TAG + tempf_in.loc_uid + CLOSE_TAG
-
-    #string ee_uid                           # uid of the end effector needed to manipulate this temporary fastener
-    str = str + END_EFFECTOR_UID_TAG + tempf_in.ee_uid + CLOSE_TAG
-
-    #AssemblyFastState state                 # The state of the temporary fastener
-    str = str + FASTENER_STATE_TAG + str(tempf_in.state) + CLOSE_TAG
-
-    #geometry_msgs/Pose inst_pos             # Installed location of the temporary fastener
-                                                # Only available after installation
-    str = str + _get_pose_str(tempf_in.inst_pos)
-
-    #float32 diam                            # diameter of the temporary fastener
-    str = str + DIAM_TAG + str(tempf_in.diam) + CLOSE_TAG
-
-    #float32 shaft_height                    # the height of the shaft that is sticking out when installed
-    str = str + SHAFT_HEIGHT_TAG + str(tempf_in.shaft_height) + CLOSE_TAG
-
-    #float32 min_stack                       # the minimum stack
-    str = str + MIN_STACK_TAG + str(tempf_in.min_stack) + CLOSE_TAG
-
-    #float32 max_stack                       # the maximum stack
-    str = str + MAX_STACK_TAG + str(tempf_in.max_stack) + CLOSE_TAG
-
-    #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole 
-    str = str + TCP_TIP_DIST_TAG + str(tempf_in.tcp_tip_distace) + CLOSE_TAG
-
-    #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
-                                                # the top is where the tcp is when engaging the tempf 
-    str = str + TCP_TOP_DIST_TAG + str(tempf_in.tcp_tip_distace) + CLOSE_TAG        
-
-    return str + CLOSE_TAG 
+    return str 
 
 # get message string for AssemblyEeDockingPos
 def _get_docking_pos_to_cobot_str(docking_pos_in):

@@ -8,7 +8,6 @@ from penelope_aerospace_pl_msgs.msg import AssemblyDrill
 from penelope_aerospace_pl_msgs.msg import AssemblyEe
 from penelope_aerospace_pl_msgs.msg import AssemblyFast
 from penelope_aerospace_pl_msgs.msg import AssemblyMaterialLayer
-from penelope_aerospace_pl_msgs.msg import AssemblyTempFast
 from geometry_msgs.msg import Pose
 
 def R_matrix_to_quaternion(matrix, isprecise=False):
@@ -206,10 +205,10 @@ def _create_fasteners_from_cobot_output(c_str):
 def _create_tempfs_from_cobot_output(c_str): 
     # get the string after the first TEMPF_TAG
     t_str = _find_substring(c_str, get_str_function.TEMPF_TAG)
-    lst = []  # [AssemblyTempFast]
+    lst = []  # [AssemblyFast]
 
     while t_str is not None:
-        lst.append(_get_tempf_from_str(t_str))
+        lst.append(_get_fastener_from_str(t_str))
         
         # check if there is another string after an TEMPF_TAG
         t_str = _find_substring(t_str, get_str_function.TEMPF_TAG)
@@ -357,45 +356,6 @@ def _get_material_layer_from_str(c_str):
 # Function to create AssemblyFast object from a string
 def _get_fastener_from_str(c_str): 
     obj = AssemblyFast()
-
-    # get the 'uid': 'string',
-    obj.uid = extract_leaf_content(c_str, get_str_function.UID_TAG, get_str_function.CLOSE_TAG)
-
-    # get the 'loc_uid': 'string',
-    obj.loc_uid = extract_leaf_content(c_str, get_str_function.LOC_UID_TAG, get_str_function.CLOSE_TAG)
-
-    # get the 'ee_uid': 'string',
-    obj.ee_uid = extract_leaf_content(c_str, get_str_function.END_EFFECTOR_UID_TAG, get_str_function.CLOSE_TAG)
-
-    # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyFastState',
-    obj.state = int(extract_leaf_content(c_str, get_str_function.FASTENER_STATE_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'inst_pos': 'geometry_msgs/Pose',
-    obj.inst_pos = _get_pose_from_str(_find_substring(c_str, get_str_function.POSE_TAG))
-
-    # get the 'diam': 'float',DIAM_TAG
-    obj.diam = float(extract_leaf_content(c_str, get_str_function.DIAM_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'shaft_height': 'float',SHAFT_HEIGHT_TAG
-    obj.shaft_height = float(extract_leaf_content(c_str, get_str_function.SHAFT_HEIGHT_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'min_stack': 'float',MIN_STACK_TAG
-    obj.min_stack = float(extract_leaf_content(c_str, get_str_function.MIN_STACK_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'max_stack': 'float',MAX_STACK_TAG
-    obj.max_stack = float(extract_leaf_content(c_str, get_str_function.MAX_STACK_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'tcp_tip_distace': 'float',TCP_TIP_DIST_TAG
-    obj.tcp_tip_distace = float(extract_leaf_content(c_str, get_str_function.TCP_TIP_DIST_TAG, get_str_function.CLOSE_TAG))
-
-    # get the 'tcp_top_distace': 'float',TCP_TOP_DIST_TAG
-    obj.tcp_top_distace = float(extract_leaf_content(c_str, get_str_function.TCP_TOP_DIST_TAG, get_str_function.CLOSE_TAG))
-
-    return obj
-
-# Function to create AssemblyTempFast object from a string
-def _get_tempf_from_str(c_str): 
-    obj = AssemblyTempFast()
 
     # get the 'uid': 'string',
     obj.uid = extract_leaf_content(c_str, get_str_function.UID_TAG, get_str_function.CLOSE_TAG)

@@ -1,15 +1,11 @@
-import time
 import rclpy
 
-import socket
-import select
 import cobot_TCP_server
 import queue
 import get_str_function
 import create_action_obj
 
 from penelope_aerospace_pl_msgs.action import CobotOp
-from penelope_aerospace_pl_msgs.msg import AssemblyAction
 from penelope_aerospace_pl_msgs.msg import AssemblyActionState
 
 from penelope_aerospace_pl_msgs.msg import ModuleState
