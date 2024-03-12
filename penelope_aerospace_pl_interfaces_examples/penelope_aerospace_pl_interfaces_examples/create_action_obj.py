@@ -4,6 +4,8 @@ import math
 import numpy as np
 
 from penelope_aerospace_pl_msgs.msg import AssemblyAction
+from penelope_aerospace_pl_msgs.msg import AssemblyActionState
+from penelope_aerospace_pl_msgs.msg import AssemblyActionType
 from penelope_aerospace_pl_msgs.msg import AssemblyDrill
 from penelope_aerospace_pl_msgs.msg import AssemblyEe
 from penelope_aerospace_pl_msgs.msg import AssemblyFast
@@ -236,14 +238,18 @@ def _get_action_from_str(c_str):
     # get the 'uid': 'string',
     obj.uid = extract_leaf_content(c_str, get_str_function.UID_TAG, get_str_function.CLOSE_TAG)
 
-    # get the 'a_type': 'string',
-    obj.a_type = extract_leaf_content(c_str, get_str_function.A_TYPE_TAG, get_str_function.CLOSE_TAG)
+    # string a_type: type of the action object to create
+    # ACTION_TYPE_MOVE_WAYPOINT = 1   
+    # ACTION_TYPE_INSTALL_PERMF = 2 
+    # ACTION_TYPE_INSTALL_TEMPF = 3  
+    # ACTION_TYPE_REMOVE_TEMPF = 4  
+    obj.a_type = AssemblyActionType(extract_leaf_content(c_str, get_str_function.A_TYPE_TAG, get_str_function.CLOSE_TAG))
 
     # get the 'loc_uid': 'string',
     obj.loc_uid = extract_leaf_content(c_str, get_str_function.LOC_UID_TAG, get_str_function.CLOSE_TAG)
 
     # get the 'state': 'penelope_aerospace_pl_msgs/AssemblyActionState',
-    obj.state = extract_leaf_content(c_str, get_str_function.ACTION_STATE_TAG, get_str_function.CLOSE_TAG)
+    obj.state = AssemblyActionState(extract_leaf_content(c_str, get_str_function.ACTION_STATE_TAG, get_str_function.CLOSE_TAG))
 
     # get the 'passing': 'sequence<string>',
     # get the string after the first PASSING_UIDS_TAG

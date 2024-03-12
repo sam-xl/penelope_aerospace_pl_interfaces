@@ -364,8 +364,12 @@ def _get_action_to_cobot_str(action_in):
     # string uid: uid of the hole Action
     str = str + UID_TAG + action_in.uid + CLOSE_TAG
 
-    # string a_type: uid of the action object to execute
-    str = str + A_TYPE_TAG + action_in.a_type + CLOSE_TAG
+    # AssemblyActionType a_type: type of the action object to create
+    # ACTION_TYPE_MOVE_WAYPOINT = 1   
+    # ACTION_TYPE_INSTALL_PERMF = 2  
+    # ACTION_TYPE_INSTALL_TEMPF = 3  
+    # ACTION_TYPE_REMOVE_TEMPF = 4 
+    str = str + A_TYPE_TAG + str(action_in.a_type) + CLOSE_TAG
 
     # string loc_uid: uid of the target location of the object
     str = str + LOC_UID_TAG + action_in.loc_uid + CLOSE_TAG

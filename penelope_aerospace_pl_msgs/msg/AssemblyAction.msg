@@ -9,10 +9,11 @@
 
 string uid                  # uid of the hole Action
 
-string a_type               # type of action
-                            # ACTION_TYPE_MOVE_WAYPOINT = "move_to_waypoint"   
-                            # ACTION_TYPE_INSTALL = "install_fastener"  
-                            # ACTION_TYPE_REMOVE = "remove_fastener"  
+AssemblyActionType a_type   # type of action
+                            # ACTION_TYPE_MOVE_WAYPOINT   
+                            # ACTION_TYPE_INSTALL_PERMF  
+                            # ACTION_TYPE_INSTALL_TEMPF 
+                            # ACTION_TYPE_REMOVE_TEMPF  
 
 string loc_uid              # uid of the target location of the object
                                         

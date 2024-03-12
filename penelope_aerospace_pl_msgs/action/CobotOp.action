@@ -15,7 +15,8 @@ AssemblyHoleLocationContainer[] products    # array of product containers with h
 
 AssemblyWaypoint[] waypoints                # array of defined waypoints
 
-AssemblyAction[] actions                    # array of defined actions
+AssemblyAction[] actions                    # array of defined actions 
+                                            # instl permf, instl tempf, move to waypoint or remove tempf)
 
 AssemblyDrill[] drill_tasks                 # array of holes to be drilled
 

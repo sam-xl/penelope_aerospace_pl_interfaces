@@ -15,6 +15,7 @@ find_package(trajectory_msgs)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AssemblyAction.msg"
   "msg/AssemblyActionState.msg"
+  "msg/AssemblyActionType.msg"
   "msg/AssemblyDrill.msg"
   "msg/AssemblyEe.msg"
   "msg/AssemblyEeDockingPos.msg"
