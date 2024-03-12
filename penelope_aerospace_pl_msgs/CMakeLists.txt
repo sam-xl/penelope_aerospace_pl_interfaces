@@ -24,7 +24,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AssemblyHoleLocation.msg"
   "msg/AssemblyHoleLocationContainer.msg"
   "msg/AssemblyMaterialLayer.msg"
-  "msg/AssemblyTempFast.msg"
   "msg/AssemblyWaypoint.msg"
   "msg/ModuleState.msg"
   "msg/ResultCodes.msg"
