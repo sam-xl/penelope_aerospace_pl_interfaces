@@ -12,7 +12,6 @@ LOCATIONS_TAG = "locations" + OPEN_TAG
 LOC_UID_TAG = "loc_uid" + OPEN_TAG
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
 APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
-HOLE_LOCATION_CONT_TAG = "hole_location_container" + OPEN_TAG
 HOLE_LOCATION_TAG = "hole_location" + OPEN_TAG
 POSE_TAG = "pose" + OPEN_TAG
 POSE_PX_TAG = "pose_p_x" + OPEN_TAG
@@ -140,26 +139,23 @@ def R_matrix_to_DRL_angles(R):
     return [w, p, r]
 
 
-# Function to send list of storage location containers to the cobot controller
+# Function to send a permf container with holes to the cobot controller
 # AssemblyHoleLocationContainer
-def storage_str_to_cobot(storages_in):
-    str = STORAGE_LOCS_TAG
-
-    for storage_in in storages_in:
-        str = STORAGE_LOC_TAG + _get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
-
-    str = str + CLOSE_TAG
+def permf_storage_str_to_cobot(storage_in):
+    str = PERMF_STORAGE_LOC_TAG + _get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
 
     return str
 
-# Function to send list of product containers with holes to the cobot controller
-def products_str_to_cobot(products_in):
-    str = PRODUCTS_TAG
+# Function to send a tempf container with holes to the cobot controller
+# AssemblyHoleLocationContainer
+def tempf_storage_str_to_cobot(storage_in):
+    str = TEMPF_STORAGE_LOC_TAG + _get_hole_location_container_to_cobot_str(storage_in) + CLOSE_TAG
 
-    for product in products_in:
-        str = PRODUCT_TAG + _get_hole_location_container_to_cobot_str(product) + CLOSE_TAG
+    return str
 
-    str = str + CLOSE_TAG
+# Function to send a product container with holes to the cobot controller
+def product_str_to_cobot(product_in):
+    str = PRODUCT_TAG + _get_hole_location_container_to_cobot_str(product_in) + CLOSE_TAG
 
     return str
 
@@ -243,8 +239,6 @@ def ee_str_to_cobot(ee_in):
 
 # get message string for AssemblyHoleLocationContainer
 def _get_hole_location_container_to_cobot_str(cont_in):
-    str = HOLE_LOCATION_CONT_TAG 
-    
     # uid of the container
     str = str + UID_TAG + cont_in.uid + CLOSE_TAG
 
@@ -260,7 +254,7 @@ def _get_hole_location_container_to_cobot_str(cont_in):
     # approach_pos_uid
     str = str + APPR_POS_UID_TAG + cont_in.approach_pos_uid + CLOSE_TAG 
 
-    return str + CLOSE_TAG
+    return str
 
 # get message string for AssemblyHoleLocation
 def _get_hole_location_to_cobot_str(loc_in):
@@ -430,7 +424,7 @@ def _get_fastener_to_cobot_str(fastener_in):
     str = str + FASTENER_STATE_TAG + str(fastener_in.state) + CLOSE_TAG
 
     #geometry_msgs/Pose inst_pos             # Installed location of the fastener
-                                                # Only available after installation
+                                             # Only available after installation
     str = str + _get_pose_str(fastener_in.inst_pos)
 
     #float32 diam                            # diameter of the fastener

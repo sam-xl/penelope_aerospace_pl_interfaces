@@ -87,16 +87,22 @@ class FokkerActionServer(Node):
     # Function to send goal_handle contents to the cobot controller
     # Sends everything to the Cobot except for the uids to execute
     def send_goal_handle_to_cobot(self, goal_handle_in):
-        # list of storage location containers
-        res = self.send_msg_to_cobot(get_str_function.storage_str_to_cobot(goal_handle_in.request.storage))          
+        # storage location container
+        res = self.send_msg_to_cobot(get_str_function.permf_storage_str_to_cobot(goal_handle_in.request.permf_storage))          
         if res < 0:
-            self.get_logger().error("Failed to send storage to cobot.")
+            self.get_logger().error("Failed to send permf storage to cobot.")
+            return -1
+        
+        # storage location container
+        res = self.send_msg_to_cobot(get_str_function.tempf_storage_str_to_cobot(goal_handle_in.request.tempf_storage))          
+        if res < 0:
+            self.get_logger().error("Failed to send tempf storage to cobot.")
             return -1
 
-        # list of product containers with holes
-        res = self.send_msg_to_cobot(get_str_function.products_str_to_cobot(goal_handle_in.request.products))        
+        # product container with holes
+        res = self.send_msg_to_cobot(get_str_function.product_str_to_cobot(goal_handle_in.request.product))        
         if res < 0:
-            self.get_logger().error("Failed to send products to cobot.")
+            self.get_logger().error("Failed to send product to cobot.")
             return -1
 
         # list of defined waypoints

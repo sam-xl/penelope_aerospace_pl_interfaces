@@ -70,6 +70,8 @@ def server_socket_write(): pass # input: socket_in, str_in.encode()
 # thread functions
 def thread_run(): pass # inputs: function_in, loop = True
 def thread_stop(): pass # inputs: thread_in
+
+from __future__ import annotations
  
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -179,10 +181,6 @@ ACTION_TYPE_MOVE_WAYPOINT = "move_to_waypoint"
 ACTION_TYPE_INSTALL_PERMF = "install_permf"  
 ACTION_TYPE_INSTALL_TEMPF = "install_tempf"  
 ACTION_TYPE_REMOVE_TEMPF = "remove_fastener"    
-
-WAYPOINT_TEMPF_STORAGE_CENTRAL_APPROACH_UID = "tempf_central_approach"
-WAYPOINT_PERMF_STORAGE_CENTRAL_APPROACH_UID = "permf_central_approach"
-WAYPOINT_PRODUCT_CENTRAL_APPROACH_UID = "product_central_approach"
  
 TIGHTEN_PROGRAM = 2
 UNTIGHTEN_PROGRAM = 1
@@ -245,7 +243,6 @@ LOCATIONS_TAG = "locations" + OPEN_TAG
 LOC_UID_TAG = "loc_uid" + OPEN_TAG
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
 APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
-HOLE_LOCATION_CONT_TAG = "hole_location_container" + OPEN_TAG
 HOLE_LOCATION_TAG = "hole_location" + OPEN_TAG
 POSE_TAG = "pose" + OPEN_TAG
 POSE_PX_TAG = "pose_p_x" + OPEN_TAG
@@ -446,8 +443,6 @@ def _get_hole_location_container_to_server_str(cont_in):
  
     :param cont_in: cl_f_container
     """ 
-    str = HOLE_LOCATION_CONT_TAG 
-    
     # uid of the container
     str = str + UID_TAG + cont_in.uid() + CLOSE_TAG
 
@@ -463,7 +458,7 @@ def _get_hole_location_container_to_server_str(cont_in):
     # approach_pos_uid
     str = str + APPR_POS_UID_TAG + cont_in.approach_pos_uid + CLOSE_TAG 
 
-    return str + CLOSE_TAG
+    return str
 
 
 def _get_hole_location_to_server_str(loc_in):
@@ -709,12 +704,12 @@ def _get_fastener_to_server_str(tl_cont_in, tempf):
     #float32 max_stack                       # the maximum stack
     str = str + MAX_STACK_TAG + str(fastener_in.max_stack()) + CLOSE_TAG
 
-    #float32 tcp_tip_distace                 # distance between hole entry point and tip if inserted in a hole
-    str = str + TCP_TIP_DIST_TAG + str(fastener_in.tcp_tip_distace()) + CLOSE_TAG
+    #float32 tcp_tip_distance                 # distance between hole entry point and tip if inserted in a hole
+    str = str + TCP_TIP_DIST_TAG + str(fastener_in.tcp_tip_distance()) + CLOSE_TAG
 
-    #float32 tcp_top_distace                 # distance between hole entry point and top if inserted in a hole
+    #float32 tcp_top_distance                 # distance between hole entry point and top if inserted in a hole
                                                 # the top is where the tcp is when engaging the tempf
-    str = str + TCP_TOP_DIST_TAG + str(fastener_in.tcp_tip_distace()) + CLOSE_TAG
+    str = str + TCP_TOP_DIST_TAG + str(fastener_in.tcp_tip_distance()) + CLOSE_TAG
 
     return str + CLOSE_TAG 
 
@@ -799,52 +794,60 @@ def extract_leaf_content(input_string, open_tag, close_tag):
         return None
     
     
-def handle_ros_msg(msg_str, agent, queue_out):
+def handle_ros_msg(msg_str: str, agent: cl_agent):
     """
     Function that modifies a cl_agent instance using a message string.
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
     """
-    # storage: storage location containers
-    # CURRENT IMPLEMENTATION LIMITED TO ONE STORAGE
-    st_str = _find_substring(msg_str, STORAGE_LOCS_TAG)
-    if st_str is not None:
-        handle_container_str(st_str, agent, queue_out)
+    # tempf_storage: storage location container
+    tempf_st_str = _find_substring(msg_str, TEMPF_STORAGE_LOC_TAG)
+    if tempf_st_str is not None:
+        handle_container_str(tempf_st_str, agent, TEMPF_STORAGE_LOC_TAG)
 
-    # products: product containers with holes
-    # CURRENT IMPLEMENTATION LIMITED TO ONE PRODUCT
-    pr_str = _find_substring(msg_str, PRODUCTS_TAG)
+    # permf_storage: storage location container
+    permf_st_str = _find_substring(msg_str, PERMF_STORAGE_LOC_TAG)
+    if permf_st_str is not None:
+        handle_container_str(permf_st_str, agent, PERMF_STORAGE_LOC_TAG)
+
+    # product: storage location container
+    pr_str = _find_substring(msg_str, PRODUCT_TAG)
     if pr_str is not None:
-        handle_container_str(pr_str, agent, queue_out)
+        handle_container_str(pr_str, agent, PRODUCT_TAG)
     
     # waypoints
-    wp_str = _find_substring(msg_str, WAYPOINTS_TAG)
-    while wp_str is not None:
-        handle_waypoint_str(wp_str, agent, queue_out)
-        wp_str = _find_substring(wp_str, WAYPOINTS_TAG)
+    wps_str = _find_substring(msg_str, WAYPOINTS_TAG)
+    if wps_str is not None:
+        wp_str = _find_substring(wps_str, WAYPOINT_TAG)
+        while wp_str is not None:
+            handle_waypoint_str(wp_str, agent)
+            wp_str = _find_substring(wp_str, WAYPOINT_TAG)
     
     # actions
-    a_str = _find_substring(msg_str, ACTIONS_TAG)
-    while a_str is not None:
-        handle_action_str(a_str, agent, queue_out)
-        a_str = _find_substring(a_str, ACTIONS_TAG)
+    actions_str = _find_substring(msg_str, ACTIONS_TAG)
+    if actions_str is not None:
+        action_str = _find_substring(actions_str, ACTION_TAG)
+        while action_str is not None:
+            handle_action_str(action_str, agent)
+            action_str = _find_substring(action_str, ACTIONS_TAG)
     
     # holes to be drilled
     # NOT IMPLEMENTED YET
     
     # available fasteners
-    pf_str = _find_substring(msg_str, FASTENERS_TAG)
+    pfs_str = _find_substring(msg_str, FASTENERS_TAG)
+    pf_str = _find_substring(pfs_str, FASTENER_TAG)
     while pf_str is not None:
-        handle_fastener_str(pf_str, agent, queue_out)
-        pf_str = _find_substring(pf_str, FASTENERS_TAG)
+        handle_fastener_str(pf_str, agent, FASTENER_TAG)
+        pf_str = _find_substring(pf_str, FASTENER_TAG)
     
     # available fasteners
-    tf_str = _find_substring(msg_str, TEMPFS_TAG)
+    tfs_str = _find_substring(msg_str, TEMPFS_TAG)
+    tf_str = _find_substring(tfs_str, TEMPF_TAG)
     while tf_str is not None:
-        handle_fastener_str(tf_str, agent, queue_out)
-        tf_str = _find_substring(tf_str, TEMPFS_TAG)
+        handle_fastener_str(tf_str, agent, TEMPF_TAG)
+        tf_str = _find_substring(tf_str, TEMPF_TAG)
     
     # available docking positions for End Effectors
     # NOT IMPLEMENTED YET
@@ -856,48 +859,71 @@ def handle_ros_msg(msg_str, agent, queue_out):
     # execution actions are always single actions
     ex_str = _find_substring(msg_str, EXECUTE_TAG)
     if ex_str is not None:
-        handle_execution_str(ex_str, agent, queue_out)
+        handle_execution_str(ex_str, agent)
 
 
-def handle_container_str(msg_str, agent, queue_out):
+def handle_container_str(msg_str: str, agent: cl_agent, type: str):
     """
     Function that modifies containers in an agent 
     using a message string and adds a return to the queue_out
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
+    :param type: str The container type
+                     temporary fastener container if TEMPF_STORAGE_LOC_TAG
+                     permanent fastener container if PERMF_STORAGE_LOC_TAG
+                     product container if PRODUCT_TAG
     """
+    # create the container object
+    uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG)
+    approach_pos_uid = extract_leaf_content(msg_str, APPR_POS_UID_TAG, CLOSE_TAG)
+    max_obstacle_heigth = float(extract_leaf_content(msg_str, MAX_OBST_HEIGHT_TAG, CLOSE_TAG))
+    obj = cl_f_container(uid, max_obstacle_heigth, approach_pos_uid)
 
-    agent = cl_agent()
+    if type == TEMPF_STORAGE_LOC_TAG:
+        agent.tempf_storage = obj
+    elif type == PERMF_STORAGE_LOC_TAG:
+        agent.permf_storage = obj
+    elif type == PRODUCT_TAG:
+        agent.product = obj
+    else:
+        raise Exception("Unknown storage type encountered in handle_container_str in container with uid {}.".format(uid))
 
-    agent.tempf_storage = None
+    # add the locations
+    locs_str = _find_substring(msg_str, LOCATIONS_TAG)
+    loc_str = _find_substring(locs_str, HOLE_LOCATION_TAG)
+    while loc_str is not None:
+        loc_uid = extract_leaf_content(loc_str, UID_TAG, CLOSE_TAG)
+        diam = float(extract_leaf_content(loc_str, DIAM_TAG, CLOSE_TAG))          
+        stack_thickness = float(extract_leaf_content(loc_str, STACK_T_TAG, CLOSE_TAG)) 
+        nom_pos = _get_posx_from_str(_find_substring(loc_str, POSE_TAG))
+        
+        obj.add_loc_to_holes_and_tempfs_lst(loc_uid, diam, stack_thickness, nom_pos)
+
+        loc_str = _find_substring(loc_str, HOLE_LOCATION_TAG)
+
+    send_to_PC("","container {} received by cobot".format(uid))
 
 
-    #storage = cl_f_container("storage", True)
-    #storage.add_loc_to_holes_and_tempfs_lst("st_01_01", 4.8, 9, posx(-745.850,573.600,666.230,90.5,69.29,-89.92))
-    
-    #product = cl_f_container("product", False, folder, p_loc_filename, p_tempf_filename)
-    # product.add_loc_to_holes_and_tempfs_lst("pr_01_01", 4.8, 9, posx(-715.820,573.620,666.380,96.82,70.24,-90.62)) #x = -710.820 a = 90.7 ; y = 573.620 z = 666.380
-     
-    pass
-    
-def handle_waypoint_str(msg_str, agent, queue_out):
+def handle_waypoint_str(msg_str, agent: cl_agent):
     """
     Function that modifies waypoints in an agent 
     using a message string and adds a return to the queue_out
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
     """
-    # agent._add_waypoint("tempf_storage", posx(-681,436,689,90,68,-90))
-    # agent._add_waypoint("product_approach", posx(-661,406,669,90,68,-90))
-    # agent._add_waypoint("HOME", posx(-743,-578,827,98,11,-55))
+    # get the waypoint inputs from the string
+    uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG)
+    wp_pos = _get_posx_from_str(_find_substring(msg_str, POSE_TAG))
 
-    pass
+    # add the waypoint
+    agent._add_waypoint(uid, wp_pos)
+
+    send_to_PC("","waypoint {} received by cobot".format(uid))
     
-def handle_action_str(msg_str, agent, queue_out):
+
+def handle_action_str(msg_str, agent: cl_agent):
     """
     Function that modifies actions in an agent 
     using a message string and adds a return to the queue_out
@@ -910,7 +936,6 @@ def handle_action_str(msg_str, agent, queue_out):
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
     """
     a_type = int(extract_leaf_content(msg_str, A_TYPE_TAG, CLOSE_TAG))
     a_uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG)
@@ -946,30 +971,96 @@ def handle_action_str(msg_str, agent, queue_out):
     if a_type == 4: 
         agent._add_remove_tempf_action(a_uid, a_loc_uid, a_is_done, a_speed) 
 
+    send_to_PC("","action {} received by cobot".format(a_uid))
+
     
-def handle_fastener_str(msg_str, agent, queue_out):
+def handle_fastener_str(msg_str: str, agent: cl_agent, f_tag):
     """
     Function that modifies fastener information of an agent 
     using a message string and adds a return to the queue_out
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
+    :param f_tag: str, FASTENER_TAG or TEMPF_TAG
     """
-    # storage.add_tempf_to_loc_with_uid("Temp_01", "st_01_01")
-    pass
+    obj = cl_f_container()
+
+    f_uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG) 
+
+    if f_tag == TEMPF_TAG:
+        obj = agent.tempf_storage
+    elif f_tag == FASTENER_TAG:
+        obj = agent.permf_storage
+    else:
+        raise Exception("Unknown fastener type encountered in handle_fastener_str in container with uid {}.".format(f_uid))
     
-def handle_execution_str(msg_str, agent, queue_out):
+    f_loc_uid = extract_leaf_content(msg_str, LOC_UID_TAG, CLOSE_TAG)
+    # f_ee_uid not implemeneted yet, but can be retreived with END_EFFECTOR_UID_TAG 
+    f_state = int(extract_leaf_content(msg_str, FASTENER_STATE_TAG, CLOSE_TAG))
+
+    f_in_storage = False
+    f_in_ee = False
+    f_in_product=False
+    f_in_bin=False
+
+    if f_state == 1:
+        f_in_storage = True
+    elif f_state == 2:
+        f_in_ee = True
+    elif f_state == 3:
+        f_in_product=True
+    elif f_state == 4:
+        f_in_bin=True
+
+    f_diam = float(extract_leaf_content(msg_str, DIAM_TAG, CLOSE_TAG)) 
+    f_shaft_height = float(extract_leaf_content(msg_str, SHAFT_HEIGHT_TAG, CLOSE_TAG)) 
+    f_min_stack = float(extract_leaf_content(msg_str, MIN_STACK_TAG, CLOSE_TAG)) 
+    f_max_stack = float(extract_leaf_content(msg_str, MAX_STACK_TAG, CLOSE_TAG))
+    f_tcp_tip_dist = float(extract_leaf_content(msg_str, TCP_TIP_DIST_TAG, CLOSE_TAG)) 
+    f_tcp_top_dist = float(extract_leaf_content(msg_str, TCP_TOP_DIST_TAG, CLOSE_TAG))
+
+    pos_str = _find_substring(msg_str, POSE_TAG)
+    if pos_str is not None:
+        f_install_pos = _get_posx_from_str(pos_str)
+    else:
+        f_install_pos = None
+
+    obj.add_tempf_to_loc_with_uid(f_uid, f_loc_uid, f_install_pos, f_diam, f_shaft_height, 
+                                  f_min_stack, f_max_stack, f_tcp_tip_dist, f_tcp_top_dist,
+                                  f_in_storage, f_in_ee, f_in_product, f_in_bin)
+    
+    send_to_PC("","fastener {} received by cobot".format(f_uid))
+
+    
+def handle_execution_str(msg_str: str, agent: cl_agent):
     """
     Function that triggers execution of actions in an agent 
     using a message string and adds a return to the queue_out
     
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
-    :param queue_out: queue.Queue(), the queue where the function can add the return message to
     """
     # agent.execute()
-    pass
+    send_to_PC("","")
+
+
+def _get_posx_from_str(str_in):
+    """
+    Function to get a posx object from a string
+    
+    :param str_in: str, the string with the position definition.
+    """
+    # get the position
+    x = float(extract_leaf_content(str_in, POSE_PX_TAG, CLOSE_TAG))
+    y = float(extract_leaf_content(str_in, POSE_PY_TAG, CLOSE_TAG))
+    z = float(extract_leaf_content(str_in, POSE_PZ_TAG, CLOSE_TAG))
+
+    # Get orientation
+    a = float(extract_leaf_content(str_in, POSE_OX_TAG, CLOSE_TAG))
+    b = float(extract_leaf_content(str_in, POSE_OY_TAG, CLOSE_TAG))
+    c = float(extract_leaf_content(str_in, POSE_OZ_TAG, CLOSE_TAG))
+
+    return posx(x, y, z, a, b, c)
     
     
 
@@ -1076,8 +1167,8 @@ def move_into_hole(tempf, ee):
  
     :return: bool, whether the insertion is succesful
     """
-    z_stop = tempf.tcp_tip_distace() * 0.95 #Stond op 0.95 nij 1ste insertion testen
-    CSK_stop = tempf.tcp_tip_distace()*0.09
+    z_stop = tempf.tcp_tip_distance() * 0.95 #Stond op 0.95 nij 1ste insertion testen
+    CSK_stop = tempf.tcp_tip_distance()*0.09
     
     #set the DR_USER_NOM on the corrected position
     overwrite_user_cart_coord(DR_USER_NOM, tempf.corrected_pos(), ref=DR_BASE)
@@ -1118,8 +1209,8 @@ def move_into_hole(tempf, ee):
         movel(posx(5, 0, -SAFE_Z_GAP, 0, 0, 0), ref=DR_USER_NOM)
         movel(posx(0, 0, -SAFE_Z_GAP, 0, 0, 0), ref=DR_USER_NOM)
         
-        z_stop = tempf.tcp_tip_distace() * 0.95 + z0[2]
-        CSK_stop = tempf.tcp_tip_distace()*0.09 + z0[2]
+        z_stop = tempf.tcp_tip_distance() * 0.95 + z0[2]
+        CSK_stop = tempf.tcp_tip_distance()*0.09 + z0[2]
  
  
     #wait a bit to get a good force reading
@@ -1143,7 +1234,7 @@ def move_into_hole(tempf, ee):
     task_compliance_ctrl([5000,5000,5000,400,400,400])
     
 # Movement command to go in to countersink    
-    amovel(posx(0, 0, (tempf.tcp_tip_distace()*0.11), 0, 0, 0), ref=DR_USER_NOM)
+    amovel(posx(0, 0, (tempf.tcp_tip_distance()*0.11), 0, 0, 0), ref=DR_USER_NOM)
  
 # Loop to prevent safety stop / damage to part.
 # A force detection (can) indicate a misalignment  
@@ -1773,7 +1864,7 @@ def retract_and_check_tempf_in_ee(tempf, ee, retract = True):
     set_ref_coord(DR_TOOL)
     
     if retract:
-        movel(posx(0, 0, -tempf.tcp_tip_distace() - SAFE_Z_GAP, 0, 0, 0), ref=DR_TOOL)
+        movel(posx(0, 0, -tempf.tcp_tip_distance() - SAFE_Z_GAP, 0, 0, 0), ref=DR_TOOL)
     
     change_operation_speed(MOVE_SPEED)
     movel(posx( 2 * tempf.diam(), 0, 0, 0, 0, 0), ref=DR_USER_PROBE)
@@ -3599,8 +3690,8 @@ class cl_fastener(cl_fastener_location):
             self.__shaft_height = DIAM_5_SHAFT_HEIGHT
             self.__min_stack = DIAM_5_MIN_STACK
             self.__max_stack = DIAM_5_MAX_STACK
-            self.__tcp_tip_distace = DIAM_5_TCP_TIP_DIST
-            self.__tcp_top_distace = DIAM_5_TCP_TOP_DIST
+            self.__tcp_tip_distance = DIAM_5_TCP_TIP_DIST
+            self.__tcp_top_distance = DIAM_5_TCP_TOP_DIST
         
         #Perm fastening
         #For diameter code 6:
@@ -3609,22 +3700,22 @@ class cl_fastener(cl_fastener_location):
                 self.__shaft_height = DIAM_6_AND_GRIP_9_SHAFT_HEIGHT
                 self.__min_stack = DIAM_6_AND_GRIP_9_MIN_STACK
                 self.__max_stack = DIAM_6_AND_GRIP_9_MAX_STACK
-                self.__tcp_tip_distace = DIAM_6_AND_GRIP_9_TCP_TIP_DIST
-                self.__tcp_top_distace = DIAM_6_AND_GRIP_9_TCP_TOP_DIST
+                self.__tcp_tip_distance = DIAM_6_AND_GRIP_9_TCP_TIP_DIST
+                self.__tcp_top_distance = DIAM_6_AND_GRIP_9_TCP_TOP_DIST
                 
             elif abs(self.grip_length() - 6) < 0.1: #Grip code 6
                 self.__shaft_height = DIAM_6_AND_GRIP_6_SHAFT_HEIGHT
                 self.__min_stack = DIAM_6_AND_GRIP_6_MIN_STACK
                 self.__max_stack = DIAM_6_AND_GRIP_6_MAX_STACK
-                self.__tcp_tip_distace = DIAM_6_AND_GRIP_6_TCP_TIP_DIST
-                self.__tcp_top_distace = DIAM_6_AND_GRIP_6_TCP_TOP_DIST
+                self.__tcp_tip_distance = DIAM_6_AND_GRIP_6_TCP_TIP_DIST
+                self.__tcp_top_distance = DIAM_6_AND_GRIP_6_TCP_TOP_DIST
         else:
             send_to_PC("cl_fastener_init___", "Unknown diameter of {}mm specified for {}".format(diam, uid))
             self.__shaft_height = 0
             self.__min_stack = 0
             self.__max_stack = 0
-            self.__tcp_tip_distace = 0
-            self.__tcp_top_distace = 0
+            self.__tcp_tip_distance = 0
+            self.__tcp_top_distance = 0
             
         
         # properly respond to the given positions
@@ -3843,10 +3934,10 @@ class cl_fastener(cl_fastener_location):
         """
         if self.in_ee():
             # the tip has to sink in the hole with the length of the tcp_dictance
-            depth = self.__tcp_tip_distace
+            depth = self.__tcp_tip_distance
         else:
             # the tip has to sink over the top of the fastener to engage it
-            depth = self.__shaft_height - self.__tcp_top_distace
+            depth = self.__shaft_height - self.__tcp_top_distance
         
         return self.get_dist_to_target_pos() / depth
     
@@ -3976,19 +4067,33 @@ class cl_fastener(cl_fastener_location):
         self.__dir_pred_acc = self.calc_dir_pred_acc()
  
  
-    def tcp_tip_distace(self):
+    def tcp_tip_distance(self):
         """
         returns the distance of the tip of the fastener to where the hole entry point is in mm
         """
-        return self.__tcp_tip_distace
+        return self.__tcp_tip_distance
  
+
+    def set_tcp_tip_distance(self, val):
+        """
+        sets the distance of the tip of the fastener to where the hole entry point is in mm
+        """
+        self.__tcp_tip_distance = val
+    
  
-    def tcp_top_distace(self):
+    def tcp_top_distance(self):
         """
         returns the distance of the top of the fastener to where the hole entry point is in mm
         """
-        return self.__tcp_top_distace
+        return self.__tcp_top_distance
  
+
+    def set_tcp_top_distance(self, val):
+        """
+        sets the distance of the top of the fastener to where the hole entry point is in mm
+        """
+        self.__tcp_top_distance = val
+    
     
     def set_tool_center_point(self):
         """
@@ -4050,7 +4155,6 @@ class cl_fastener(cl_fastener_location):
         
         return False
     
-        
  
     def shaft_height(self):
         """
@@ -4058,21 +4162,42 @@ class cl_fastener(cl_fastener_location):
         """
         return self.__shaft_height
  
+
+    def set_shaft_height(self, val):
+        """
+        sets the height of the shaft that is sticking out when installed in mm
+        """
+        self.__shaft_height = val
  
+
     def min_stack(self):
         """
        returns the minimum stack in mm
         """
         return self.__min_stack
  
+
+    def set_min_stack(self, val):
+        """
+        sets the minimum stack in mm
+        """
+        self.__min_stack = val
  
+
     def max_stack(self):
         """
         returns the maximum stack in mm
         """
         return self.__max_stack
  
+
+    def set_max_stack(self, val):
+        """
+        sets the maximum stack in mm
+        """
+        self.__max_stack = val
  
+
     def set_nom_axis_system_to_tempf_nom_position(self):
         """
         Set DR_USER_NOM on the nominal hole position of this fastener
@@ -4194,9 +4319,9 @@ class cl_fastener(cl_fastener_location):
         insert_pos, sol = get_current_posx(ref=DR_BASE)
         
         if self.in_ee():
-            delta = -self.__tcp_tip_distace
+            delta = -self.__tcp_tip_distance
         else:
-            delta = self.__tcp_top_distace
+            delta = self.__tcp_top_distance
         
         # calculate the position of the hole entry point
         self.set_installed_pos(translate_pos(insert_pos, 0, 0, delta))
@@ -4258,9 +4383,9 @@ class cl_fastener(cl_fastener_location):
         The TCP is at the tip of the fastener, when the fastener is in the end effector.
         """
         if self.in_ee():
-            delta = self.__tcp_tip_distace
+            delta = self.__tcp_tip_distance
         else:
-            delta = -self.__tcp_top_distace
+            delta = -self.__tcp_top_distance
             
         self.__tcp_target_pos = translate_pos(self.__corrected_pos, 0, 0, delta)
  
@@ -4349,7 +4474,7 @@ class cl_tl_container():
     This could be either a product or a fastener storage location.
     """  
     
-    def __init__(self, loc = None, tempf = None):
+    def __init__(self, loc: cl_fastener_location = None, tempf: cl_fastener = None):
         """
         Function
         
@@ -4569,18 +4694,19 @@ class cl_tl_container():
         return False
     
     
-    def add_tempf(self, uid, diam = 0, stack_thickness = 0, tempf_nom_pos = None, 
-                  tempf_corrected_pos=None, tempf_install_pos=None, 
-                  in_storage = False, in_ee = False, in_product=False, in_bin=False):
+    def add_tempf(self, uid, tempf_install_pos, diam, shaft_height, 
+                  min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
+                  in_storage, in_ee, in_product, in_bin):
         """
         Function to add a fastener to the fastener and location container
-        
+
         :param uid: str,
-        :param diam: float,
-        :param stack_thickness: float,
-        :param tempf_nom_pos: posx, will take the location position if not specified
-        :param tempf_corrected_pos: posx, will take the nominal position if not specified
         :param tempf_install_pos: posx, will take the nominal position if not specified
+        :param shaft_height
+        :param min_stack
+        :param max_stack
+        :param tcp_tip_dist
+        :param tcp_top_dist
         :param in_storage: bool,
         :param in_ee: bool,
         :param in_product: bool, 
@@ -4588,43 +4714,40 @@ class cl_tl_container():
             
         :return: bool, whether the fastener has been succeesfully added
         """
-        if tempf_nom_pos is None:
-            if self.has_loc():
-                tempf_nom_pos = self.loc.nom_pos()
-            else:
-                return False
-        
-        if diam == 0:
-            if self.has_loc():
-                diam = self.loc.diam()
-            else:
-                return False
-            
-        if stack_thickness == 0:
-            if self.has_loc():
-                stack_thickness = self.loc.stack_thickness()
-            else:
-                return False
-        
-        if tempf_corrected_pos is None:
-            tempf_corrected_pos = tempf_nom_pos
+        if self.has_no_loc():
+            return False
             
         if tempf_install_pos is None:
             tempf_install_pos = tempf_nom_pos
             
         if self.has_no_tempf():
-            tempf = cl_fastener(uid, diam, stack_thickness, tempf_nom_pos, 
+            tempf_nom_pos = self.loc.nom_pos()
+            diam = self.loc.diam()
+            stack_thickness = self.loc.stack_thickness()      
+            tempf_corrected_pos = tempf_nom_pos
+
+            self.tempf = cl_fastener(uid, diam, stack_thickness, tempf_nom_pos, 
                                      tempf_corrected_pos, tempf_install_pos, 
                                      in_storage, in_ee, in_product, in_bin)
-            if self.has_no_loc():
-                self.tempf = tempf
-                return True
-            elif self.is_same_pos(tempf = tempf) and self.is_same_stack(tempf = tempf) and self.is_same_diam(tempf = tempf):
-                self.tempf = tempf
-                return True
-            
-        send_to_PC("add_tempf___", "fastener with uid {} could not be added to the fastener and location container.".format(uid))
-        return False
+
+        else:
+            self.tempf.set_installed_pos(tempf_install_pos)
+            if in_storage: 
+                self.tempf.set_as_in_storage()
+            elif in_ee: 
+                self.tempf.set_as_in_ee()
+            elif in_product: 
+                self.tempf.set_as_in_product()
+            elif in_bin: 
+                self.tempf.set_as_in_bin()
+
+        self.tempf.set_shaft_height(shaft_height)
+        self.tempf.set_min_stack(min_stack)
+        self.tempf.set_max_stack(max_stack)
+        self.tempf.set_tcp_tip_distance(tcp_tip_dist) 
+        self.tempf.set_tcp_top_distance(tcp_top_dist)
+
+        return True
     
     
     def remove_loc(self):
@@ -4704,56 +4827,24 @@ class cl_f_container(cl_uid):
     This could be either a product or a temproary or permanent fastener storage location.
     """  
     
-        
-    def __init__(self, uid, storage, max_obstacle_heigth = 30, approach_pos_uid = ""):
+    def __init__(self, uid = "", max_obstacle_heigth = 30, approach_pos_uid = ""):
         """
         Init function of the fastener container.
         
         :param uid: str, the uid of the fastener container.
-        :param storage: bool, True if this container is a storage location.
         :param max_obstacle_heigth: float, the height of the largest obstacle.
         :param approach_pos_uid: str, The uid of the approach position cl_waypoint.
         """
         super().__init__(uid)
         
-        self.holes_and_tempfs_lst = []  # list with (cl_tl_container)
+        self.holes_and_tempfs_lst = []  # list with list cl_tl_container
         self.bin_contents = []          # list with cl_fastener instances
         self.bin_location = None        # posx
         self.max_obstacle_height = max_obstacle_heigth       # height of the biggest obstacle
         #TODO make sure the program uses this max_obstacle_height
         self.approach_pos_uid = approach_pos_uid          # the uid of the approach position
-        #TODO make sure the approach picks this approach position
-        
-        self.__storage = storage        
-    
-    
-    def is_storage(self):
-        """
-        Returns whether the container is a fastener storage instance.
-        """
-        return self.__storage
- 
- 
-    def set_as_storage(self):
-        """
-        Sets the container to be a fastener storage instance.
-        """
-        self.__storage = True
-        
-    
-    def is_product(self):
-        """
-        Returns whether the container is a product.
-        """
-        return not self.__storage
-        
- 
-    def set_as_product(self):
-        """
-        Sets the container to be a product instance.
-        """
-        self.__storage = False
-    
+        #TODO make sure the approach picks this approach position    
+
  
     def add_loc_to_holes_and_tempfs_lst(self, uid, diam, stack_thickness, nom_pos):
         """
@@ -4781,7 +4872,9 @@ class cl_f_container(cl_uid):
         
         return True
  
-    def add_tempf_to_loc_with_uid(self, uid, loc_uid):
+    def add_tempf_to_loc_with_uid(self, uid, loc_uid, tempf_install_pos, 
+                                  diam, shaft_height, min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
+                                  in_storage, in_ee, in_product, in_bin):
         """
         Function to add a fastener to the holes_and_tempfs_lst using
         the uid of the location.
@@ -4791,17 +4884,15 @@ class cl_f_container(cl_uid):
         
         :param uid: str,
         :param loc_uid: str,
-        :param in_storage: bool,
-        :param in_ee: bool,
-        :param in_product: bool, 
-        :param in_bin: bool,
             
         :return: bool, whether the fastener has been succeesfully added
         """
         loc_lst_id = self.get_loc_lst_id_by_uid(loc_uid)
         
         if loc_lst_id >= 0:
-            return self.holes_and_tempfs_lst[loc_lst_id].add_tempf(uid)
+            return self.holes_and_tempfs_lst[loc_lst_id].add_tempf(uid, tempf_install_pos, diam, shaft_height, 
+                                                                   min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
+                                                                   in_storage, in_ee, in_product, in_bin)
  
         return False
  
@@ -5252,6 +5343,8 @@ class cl_f_container(cl_uid):
                 
         send_to_PC("find_tempf_id_of_diam___", "no fastener available with diameter {}.".format(diam)) #add grip to error message
         return 0
+
+
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
    
@@ -5284,10 +5377,15 @@ class cl_agent(cl_uid):
         """
         super().__init__(uid)
         
+        self.tempf_storage = cl_f_container()
         self.tempf_storage = tempf_storage
+        self.permf_storage = cl_f_container()
         self.permf_storage = permf_storage
+        self.product = cl_f_container()
         self.product = product 
+        self.pf_ee = cl_perm_fast_ee()
         self.pf_ee = pf_ee
+        self.tf_ee = cl_temp_fast_ee()
         self.tf_ee = tf_ee
         
         self.actions = []    # list of cl_action
@@ -5736,7 +5834,7 @@ class cl_agent(cl_uid):
             
             release_force()
             release_compliance_ctrl()
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distace() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
  
             self.tf_ee.stop_ejection()   
             
@@ -5756,7 +5854,7 @@ class cl_agent(cl_uid):
             
             release_force()
             release_compliance_ctrl()
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distace() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
             
             return False
             
@@ -5813,7 +5911,7 @@ class cl_agent(cl_uid):
         #        return False
         #else:
         if not move_into_hole(tempf, self.tf_ee):
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distace() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
             
             self.tf_ee.stop_clamping()
             
@@ -5849,7 +5947,7 @@ class cl_agent(cl_uid):
         # start ejecting to help disengage the fastener
         self.tf_ee.start_ejection()
         
-        movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distace() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+        movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
  
         self.tf_ee.stop_ejection()        
  
@@ -6131,8 +6229,7 @@ class cl_agent(cl_uid):
         :param: log: bool, whether to log the proceedings of the function
             
         :return: cl_waypoint, the waypoint with the specified uid
-        """  
-        #TODO this is incorrect
+        """ 
         return self._get_from_lst_by_uid(self.waypoints, uid, "waypoint", log)
  
 
@@ -6142,10 +6239,7 @@ class cl_agent(cl_uid):
             
         :return: pos, returns the position
         """
-        for wp in self.waypoints:
-            if wp.uid() == WAYPOINT_TEMPF_STORAGE_CENTRAL_APPROACH_UID:
-                return wp.pos()
-        return None
+        return self._get_waypoint_by_uid(self.tempf_storage.approach_pos_uid)
     
 
     def _permf_storage_approach_pos(self):
@@ -6154,10 +6248,7 @@ class cl_agent(cl_uid):
             
         :return: pos, returns the position
         """
-        for wp in self.waypoints:
-            if wp.uid() == WAYPOINT_PERMF_STORAGE_CENTRAL_APPROACH_UID:
-                return wp.pos()
-        return None
+        return self._get_waypoint_by_uid(self.permf_storage.approach_pos_uid)
  
     
     def _product_approach_pos(self):
@@ -6166,10 +6257,7 @@ class cl_agent(cl_uid):
             
         :return: pos, returns the position
         """
-        for wp in self.waypoints:
-            if wp.uid() == WAYPOINT_PRODUCT_CENTRAL_APPROACH_UID:
-                return wp.pos()
-        return None
+        return self._get_waypoint_by_uid(self.product.approach_pos_uid)
     
     
     def _get_from_lst_by_uid(self, lst_in, uid, o_name, log = True):
@@ -6562,9 +6650,8 @@ This function is running in the cobot controller and catches any messages
 from the pc that have been put in the socket_from_PC and handles them
 
 :param agent: cl_agent, the agent instance to be modified.
-:param queue_out: queue.Queue(), the queue where the function can add the return message to
 """
-def th_get_msg_in(agent, queue_out):
+def th_get_msg_in(agent):
 
     try:
         while True:
@@ -6573,7 +6660,7 @@ def th_get_msg_in(agent, queue_out):
                 
             if msg is not None:
                 # handle the message
-                handle_ros_msg(msg, agent, queue_out)
+                handle_ros_msg(msg, agent)
 
     except Exception as e:
         send_to_PC(("There is an error in thread 'th_sync_queue_in':", str(e)))
@@ -6648,8 +6735,7 @@ DR_USER_PROBE = create_axis_syst_on_current_position()
 DR_USER_NOM_OPP = create_axis_syst_on_current_position()
 
 # create a class that contains all available storage locations
-storage = cl_f_container("storage", True)
- 
+storage = cl_f_container("storage", 30, approach_pos_uid)
  
  
 # add some tempf objects in the storage  
@@ -6718,7 +6804,7 @@ storage.add_tempf_to_loc_with_uid("Temp_01", "st_01_01")
 ###########################################
  
 # create a class that contains all available hole positions in the product
-product = cl_f_container("product", False)
+product = cl_f_container("product", 30, approach_pos_uid)
  
  
  
