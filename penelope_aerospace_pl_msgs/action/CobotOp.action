@@ -9,9 +9,11 @@
 # It includes fields that specify the parameters of the goal.
 #-------------------------------------------------------------------------------
 
-AssemblyHoleLocationContainer[] storage     # array of storage location containers
+AssemblyHoleLocationContainer permf_storage # permf storage location container
 
-AssemblyHoleLocationContainer[] products    # array of product containers with holes
+AssemblyHoleLocationContainer tempf_storage # tempf storage location container
+
+AssemblyHoleLocationContainer product       # product container with holes
 
 AssemblyWaypoint[] waypoints                # array of defined waypoints
 
