@@ -3,18 +3,26 @@
 #-------------------------------------------------------------------------------
 
 # Description of the module states:
-#  HEATING
-#    The IR camera is heating up
+#  STANDARD
+#    Nothing is happening
+#  MOVING TO POSE
+#    Gantry is moving to a measurement location
 #  MEASURING
-#    The module is currently conducting a measurement
-#  COOLING
-#    The IR camera is cooling off (8 minutes)
-#  VIBRATION
-#    The module is currently experiencing this level of vibrations 
+#    Thermography measurement has been initiated. The module is currently conducting a measurement
+#  MEASUREMENT COMPLETED
+#    Thermography measurement is completed, measurement file created.
+#  MEASUREMENT FAILED
+#    Thermography measurement is failed, no measurement file has been created
+#  MEASUREMENT ABORTED
+#    Thermography measurement is aborted
 
-uint16 HEATING_UP=1
-uint16 MEASUREMENT_IN_PROGRESS=2
-uint16 COOLING_DOWN=3
-uint16 VIBRATION=4
+
+uint16 STANDAD=0
+uint16 MEASUREMENT_QUEUED=1
+uint16 MOVING_TO_POSE=2
+uint16 MEASURING=3
+uint16 MEASUREMENT_COMPLETED=4
+uint16 MEASUREMENT_FAILED=5
+uint16 MEASUREMENT_ABORTED=6
 
 uint16 data
