@@ -5,8 +5,8 @@
 # Description of the process states:
 #  STANDARD
 #    Nothing is happening
-#  MEASUREMENT_QUEUED
-#    Measurement is queued
+#  GANTRY MOVING
+#    The gantry is moving, independent of a measurement
 #  MOVING TO POSE
 #    Gantry is moving to a measurement location
 #  MEASURING
@@ -20,7 +20,7 @@
 
 
 uint16 STANDARD=0
-uint16 MEASUREMENT_QUEUED=1
+uint16 GANTRY_MOVING=1
 uint16 MOVING_TO_POSE=2
 uint16 MEASURING=3
 uint16 MEASUREMENT_COMPLETED=4
