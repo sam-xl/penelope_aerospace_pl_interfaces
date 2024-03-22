@@ -2,7 +2,7 @@
 # InfraredThermoMeasureState (NLR)
 #-------------------------------------------------------------------------------
 
-# Description of the module states:
+# Description of the process states:
 #  STANDARD
 #    Nothing is happening
 #  MEASUREMENT_QUEUED
