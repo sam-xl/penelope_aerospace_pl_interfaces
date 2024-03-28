@@ -71,12 +71,11 @@ def server_socket_write(): pass # input: socket_in, str_in.encode()
 def thread_run(): pass # inputs: function_in, loop = True
 def thread_stop(): pass # inputs: thread_in
 
-from __future__ import annotations
- 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
  
 # Some global variables
+from __future__ import annotations
 from math import acos
 from math import sqrt
 from datetime import datetime
@@ -448,7 +447,7 @@ def _get_hole_location_container_to_server_str(cont_in):
 
     # list of hole locations
     str = str + LOCATIONS_TAG
-    for tl_container in cont_in.holes_and_tempfs_lst:
+    for tl_container in cont_in.holes_and_fast_lst:
         str = str + _get_hole_location_to_server_str(tl_container.loc)
     str = str + CLOSE_TAG
 
@@ -605,6 +604,10 @@ def _get_action_to_server_str(action_in):
     # CANCELLED = 7
     if action_in.is_done():
         str = str + ACTION_STATE_TAG + "6" + CLOSE_TAG
+    elif action_in.is_cancelled():
+        str = str + ACTION_STATE_TAG + "7" + CLOSE_TAG
+    elif action_in.is_waiting():
+        str = str + ACTION_STATE_TAG + "4" + CLOSE_TAG
     else:
         str = str + ACTION_STATE_TAG + "2" + CLOSE_TAG
 
@@ -644,7 +647,7 @@ def _get_drill_task_to_server_str(drill_task_in):
     return ""
 
 # get message string for AssemblyFastener
-def _get_fastener_to_server_str(tl_cont_in, tempf):
+def _get_fastener_to_server_str(tl_cont_in: cl_tl_container):
     """
     Function to send a fastener to the server
     It requires a cl_tl_container because also the uid of the location is needed
@@ -653,11 +656,12 @@ def _get_fastener_to_server_str(tl_cont_in, tempf):
     :param tempf: bool Whether this is a fastener or a permanent fastener
                        Only difference is the uid of the end effector and the start tag
     """ 
-    
-    fastener_in = tl_cont_in.tempf
+    fastener_in = tl_cont_in.fast
     location_in = tl_cont_in.loc
     
-    if tempf:
+    is_tempf = fastener_in.is_tempf()
+
+    if is_tempf:
         str = TEMPF_TAG
     else:
         str = FASTENER_TAG
@@ -669,7 +673,7 @@ def _get_fastener_to_server_str(tl_cont_in, tempf):
     str = str + LOC_UID_TAG + location_in.uid() + CLOSE_TAG
 
     #string ee_uid                           # uid of the end effector needed to manipulate this (temporary) fastener
-    if tempf:
+    if is_tempf:
         str = str + END_EFFECTOR_UID_TAG + TEMPF_END_EFFECTOR_UID + CLOSE_TAG
     else:
         str = str + END_EFFECTOR_UID_TAG + FAST_END_EFFECTOR_UID + CLOSE_TAG
@@ -898,11 +902,13 @@ def handle_container_str(msg_str: str, agent: cl_agent, type: str):
         stack_thickness = float(extract_leaf_content(loc_str, STACK_T_TAG, CLOSE_TAG)) 
         nom_pos = _get_posx_from_str(_find_substring(loc_str, POSE_TAG))
         
-        obj.add_loc_to_holes_and_tempfs_lst(loc_uid, diam, stack_thickness, nom_pos)
+        obj.add_loc_to_holes_and_fast_lst(loc_uid, diam, stack_thickness, nom_pos)
 
         loc_str = _find_substring(loc_str, HOLE_LOCATION_TAG)
 
-    send_to_PC("","container {} received by cobot".format(uid))
+    return_str = "container {} received by cobot".format(uid)
+
+    send_to_PC("", return_str)
 
 
 def handle_waypoint_str(msg_str, agent: cl_agent):
@@ -950,13 +956,17 @@ def handle_action_str(msg_str, agent: cl_agent):
     # uint8 CANCELLED = 7
     a_state = int(extract_leaf_content(msg_str, ACTION_STATE_TAG, CLOSE_TAG))
     
+    a_is_cancelled = False
+    a_is_waiting = False
+
     if a_state < 6:
         a_is_done = False
     elif a_state == 6:
         a_is_done = True
+    elif a_state == 4:
+        a_is_waiting = True
     elif a_state == 7:
-        #TODO cancel the action 
-        pass
+        a_is_cancelled = True
     else:
         raise Exception("Unknown state encountered in handle_action_str in action with uid {}.".format(a_uid))
         
@@ -971,7 +981,17 @@ def handle_action_str(msg_str, agent: cl_agent):
     if a_type == 4: 
         agent._add_remove_tempf_action(a_uid, a_loc_uid, a_is_done, a_speed) 
 
-    send_to_PC("","action {} received by cobot".format(a_uid))
+    if a_is_cancelled:
+        action = agent._get_from_lst_by_uid(agent.actions, a_uid, "", False)
+        action.set_as_cancelled()
+
+    if a_is_waiting:
+        action = agent._get_from_lst_by_uid(agent.actions, a_uid, "", False)
+        action.set_as_waiting()
+
+    return_str = actions_str_to_server(agent.actions)
+
+    send_to_PC("", return_str)
 
     
 def handle_fastener_str(msg_str: str, agent: cl_agent, f_tag):
@@ -989,8 +1009,10 @@ def handle_fastener_str(msg_str: str, agent: cl_agent, f_tag):
 
     if f_tag == TEMPF_TAG:
         obj = agent.tempf_storage
+        is_tempf = True
     elif f_tag == FASTENER_TAG:
         obj = agent.permf_storage
+        is_tempf = False
     else:
         raise Exception("Unknown fastener type encountered in handle_fastener_str in container with uid {}.".format(f_uid))
     
@@ -1025,9 +1047,9 @@ def handle_fastener_str(msg_str: str, agent: cl_agent, f_tag):
     else:
         f_install_pos = None
 
-    obj.add_tempf_to_loc_with_uid(f_uid, f_loc_uid, f_install_pos, f_diam, f_shaft_height, 
-                                  f_min_stack, f_max_stack, f_tcp_tip_dist, f_tcp_top_dist,
-                                  f_in_storage, f_in_ee, f_in_product, f_in_bin)
+    obj.add_fast_to_loc_with_uid(f_uid, f_loc_uid, f_install_pos, f_diam, f_shaft_height, 
+                                 f_min_stack, f_max_stack, f_tcp_tip_dist, f_tcp_top_dist,
+                                 f_in_storage, f_in_ee, f_in_product, f_in_bin, is_tempf)
     
     send_to_PC("","fastener {} received by cobot".format(f_uid))
 
@@ -1061,8 +1083,6 @@ def _get_posx_from_str(str_in):
     c = float(extract_leaf_content(str_in, POSE_OZ_TAG, CLOSE_TAG))
 
     return posx(x, y, z, a, b, c)
-    
-    
 
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -1155,23 +1175,23 @@ def create_axis_syst_on_current_position():
     
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
  
-def move_into_hole(tempf, ee):
+def move_into_hole(fast, ee):
     """
     Function to find the hole entry with a spiral move
  
     Assumptions:
         DR_USER_NOM is at the nominal position of the fastener
  
-    :param tempf: cl_fastener,
+    :param fast: cl_fastener,
     :param ee: cl_temp_fast_ee, The EE object
  
     :return: bool, whether the insertion is succesful
     """
-    z_stop = tempf.tcp_tip_distance() * 0.95 #Stond op 0.95 nij 1ste insertion testen
-    CSK_stop = tempf.tcp_tip_distance()*0.09
+    z_stop = fast.tcp_tip_distance() * 0.95 #Stond op 0.95 nij 1ste insertion testen
+    CSK_stop = fast.tcp_tip_distance()*0.09
     
     #set the DR_USER_NOM on the corrected position
-    overwrite_user_cart_coord(DR_USER_NOM, tempf.corrected_pos(), ref=DR_BASE)
+    overwrite_user_cart_coord(DR_USER_NOM, fast.corrected_pos(), ref=DR_BASE)
  
     # make sure the coordinate frame is DR_USER_NOM
     set_ref_coord(DR_USER_NOM)
@@ -1209,8 +1229,8 @@ def move_into_hole(tempf, ee):
         movel(posx(5, 0, -SAFE_Z_GAP, 0, 0, 0), ref=DR_USER_NOM)
         movel(posx(0, 0, -SAFE_Z_GAP, 0, 0, 0), ref=DR_USER_NOM)
         
-        z_stop = tempf.tcp_tip_distance() * 0.95 + z0[2]
-        CSK_stop = tempf.tcp_tip_distance()*0.09 + z0[2]
+        z_stop = fast.tcp_tip_distance() * 0.95 + z0[2]
+        CSK_stop = fast.tcp_tip_distance()*0.09 + z0[2]
  
  
     #wait a bit to get a good force reading
@@ -1234,7 +1254,7 @@ def move_into_hole(tempf, ee):
     task_compliance_ctrl([5000,5000,5000,400,400,400])
     
 # Movement command to go in to countersink    
-    amovel(posx(0, 0, (tempf.tcp_tip_distance()*0.11), 0, 0, 0), ref=DR_USER_NOM)
+    amovel(posx(0, 0, (fast.tcp_tip_distance()*0.11), 0, 0, 0), ref=DR_USER_NOM)
  
 # Loop to prevent safety stop / damage to part.
 # A force detection (can) indicate a misalignment  
@@ -1396,7 +1416,7 @@ def move_into_hole(tempf, ee):
         change_operation_speed(60)
     
         #Start re-orientatie / probing
-        probe_hole_axis_syst(tempf)
+        probe_hole_axis_syst(fast)
         
         release_compliance_ctrl()
         
@@ -1459,7 +1479,7 @@ def move_into_hole(tempf, ee):
     
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
  
-def move_spiral_into_hole(tempf, rev, radius, r_time, attempt_number, 
+def move_spiral_into_hole(fast, rev, radius, r_time, attempt_number, 
                           z_stop = FIND_HOLE_ENTRY_STOP_DEPTH, 
                           f_x0 = 0, f_y0 = 0, f_z0 = 0):
     """
@@ -1468,7 +1488,7 @@ def move_spiral_into_hole(tempf, rev, radius, r_time, attempt_number,
     Assumptions:
         DR_USER_NOM is at the nominal position of the fastener
  
-    :param tempf: cl_fastener,
+    :param fast: cl_fastener,
     :param rev: float,
     :param radius: float,
     :param r_time: float, 
@@ -1484,7 +1504,7 @@ def move_spiral_into_hole(tempf, rev, radius, r_time, attempt_number,
     # if this is the first attempt
     if attempt_number == 1:
         #set the DR_USER_NOM on the corrected position
-        overwrite_user_cart_coord(DR_USER_NOM, tempf.corrected_pos(), ref=DR_BASE)
+        overwrite_user_cart_coord(DR_USER_NOM, fast.corrected_pos(), ref=DR_BASE)
         
         # make sure the coordinate frame is DR_USER_NOM
         set_ref_coord(DR_USER_NOM)
@@ -1503,7 +1523,7 @@ def move_spiral_into_hole(tempf, rev, radius, r_time, attempt_number,
         # Set the force
         set_desired_force([0, 0, FIND_HOLE_ENTRY_COMPLIANCE_FORCE + f_z0, 0, 0, 0], [0, 0, 1, 0, 0, 0])
     
-        send_to_PC("move_spiral_into_hole___", "fastener " + tempf.uid() + " moving towards the hole")
+        send_to_PC("move_spiral_into_hole___", "fastener " + fast.uid() + " moving towards the hole")
     
     # TODO takes long if directly in the hole. Speed this up.
     # Spiral move, enters the conical shape of countersunk hole and record the position
@@ -1571,9 +1591,9 @@ def move_spiral_into_hole(tempf, rev, radius, r_time, attempt_number,
         P_out = coord_transform(P_in_hole, DR_USER_NOM, DR_BASE)
         
         # store the position that has been found
-        tempf.set_installed_pos(P_out)
+        fast.set_installed_pos(P_out)
         
-        tempf.set_xy_pos_prediction_accuray(XY_POS_THRESHOLD * 0.5)
+        fast.set_xy_pos_prediction_accuray(XY_POS_THRESHOLD * 0.5)
         
         release_force()
         release_compliance_ctrl()
@@ -1717,7 +1737,7 @@ def get_xy_force_in_nom(f_x0, f_y0):
  
  
  
-def probe_hole_axis_syst(tempf):
+def probe_hole_axis_syst(fast):
     """
     Function to create an axis system at the hole location.
     Z-axis of the position of the fastener must be into the hole.
@@ -1730,18 +1750,18 @@ def probe_hole_axis_syst(tempf):
         5) overwrites DR_USER_PROBE axis system
         6) stores the probed position in the fastener instance
  
-    :param tempf: cl_fastener, Tempf location to be probed
+    :param fast: cl_fastener, fast location to be probed
  
    :return: Axis System, Change DR_USER_PROBE to a coordinate system at the probed entry of the hole
     """
     
     
-    probe_dist = tempf.z_pos_prediction_accuray() + SAFE_Z_GAP + SAFE_Z_GAP
+    probe_dist = fast.z_pos_prediction_accuray() + SAFE_Z_GAP + SAFE_Z_GAP
  
     
     
     # set the DR_USER_PROBE axis system above the hole location
-    overwrite_user_cart_coord(DR_USER_PROBE, translate_pos(tempf.installed_pos(), 0, 0, -probe_dist), ref=DR_BASE)
+    overwrite_user_cart_coord(DR_USER_PROBE, translate_pos(fast.installed_pos(), 0, 0, -probe_dist), ref=DR_BASE)
  
     release_force()
     release_compliance_ctrl()
@@ -1800,7 +1820,7 @@ def probe_hole_axis_syst(tempf):
     # first we determine the orientation in DR_BASE
     a_angle, b_angle, c_angle = rotm2eul(transpose([x_dir, y_dir, z_dir]))
     
-    P_install_in_DR_USER_PROBE = coord_transform(tempf.installed_pos(), DR_BASE, DR_USER_PROBE)
+    P_install_in_DR_USER_PROBE = coord_transform(fast.installed_pos(), DR_BASE, DR_USER_PROBE)
     
     # Calculate the average probing point z-coord in DR_USER_PROBE
     z_av = 0.25 * (ppx_zu + pmx_zu + ppy_zu + pmy_zu)
@@ -1824,11 +1844,11 @@ def probe_hole_axis_syst(tempf):
     
     
     # store the information in the fastener instance
-    tempf.set_installed_pos(P_out)
+    fast.set_installed_pos(P_out)
     
     # set the deviation to a low number, assuming we probed correctly
-    tempf.set_z_pos_prediction_accuray(Z_POS_THRESHOLD * 0.5) 
-    tempf.set_dir_prediction_accuray(Z_ANGLE_THRESHOLD * 0.5)
+    fast.set_z_pos_prediction_accuray(Z_POS_THRESHOLD * 0.5) 
+    fast.set_dir_prediction_accuray(Z_ANGLE_THRESHOLD * 0.5)
  
     
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -3414,14 +3434,14 @@ class cl_fastener_location(cl_uid):
     """
  
     
-    def __init__(self, uid, diam, stack_thickness, tempf_nom_pos, drill_jig_dist = 0, is_drilled = True):
+    def __init__(self, uid, diam, stack_thickness, fast_nom_pos, drill_jig_dist = 0, is_drilled = True):
         """
         Initiation of the class cl_fastener_location that describes a fastener location
  
         :param uid: str, the uid of the fastener
         :param diam: int, the diameter of the fastener in mm
         :param stack_thickness: int, the stack thickness of the current position
-        :param tempf_nom_pos: posx, The nominal position of the fastener in DR_BASE
+        :param fast_nom_pos: posx, The nominal position of the fastener in DR_BASE
         :param drill_jig_dist: float, the distance between drill jig and product in mm
         :param is_drilled: bool, Whether the hole has been drilled
         """
@@ -3431,7 +3451,7 @@ class cl_fastener_location(cl_uid):
         self.__drill_jig_dist = drill_jig_dist
         self.__diam = diam
         self.__stack_thickness = stack_thickness
-        self.__nom_pos = tempf_nom_pos
+        self.__nom_pos = fast_nom_pos
         self.__grip_length = self.calculate_grip_length()
         self.__is_drilled = is_drilled
  
@@ -3531,14 +3551,14 @@ class cl_fastener_location(cl_uid):
         """
         return [self.__nom_pos[0], self.__nom_pos[1], self.__nom_pos[2]]
  
-    def tempf_nom_pos_string(self):
+    def fast_nom_pos_string(self):
         return "nominal position: \n" + pos_string(self.__nom_pos)
         
     def log_nom_pos(self):
-        send_to_PC("log_nom_pos___", self.tempf_nom_pos_string())
+        send_to_PC("log_nom_pos___", self.fast_nom_pos_string())
  
     def pop_up_nom_pos(self):
-        tp_popup(self.tempf_nom_pos_string())
+        tp_popup(self.fast_nom_pos_string())
         
     def calculate_grip_length(self):
         """
@@ -3631,9 +3651,9 @@ class cl_fastener(cl_fastener_location):
     """
  
     
-    def __init__(self, uid, diam, stack_thickness, tempf_nom_pos, 
-                 tempf_corrected_pos=None, tempf_install_pos=None, 
-                 in_storage = False, in_ee = False, in_product=False, in_bin=False):
+    def __init__(self, uid, diam, stack_thickness, fast_nom_pos, 
+                 fast_corrected_pos=None, fast_install_pos=None, 
+                 in_storage = False, in_ee = False, in_product=False, in_bin=False, tempf = True):
         """
         If corrected_pos or install_pos are specified the init assumes 
         that the installation has already taken place and will calculate the
@@ -3643,7 +3663,7 @@ class cl_fastener(cl_fastener_location):
         :param uid: str, the uid or ID of the fastener
         :param diam: int, the diameter of the fastener in mm
         :param stack_thickness: int, the stack thickness of the current position
-        :param tempf_nom_pos: posx, The nominal position of the fastener in DR_BASE
+        :param fast_nom_pos: posx, The nominal position of the fastener in DR_BASE
             
         Additional Inputs:
             corrected_pos: posx, The position in DR_BASE that was originally calculated from the other positions
@@ -3655,13 +3675,14 @@ class cl_fastener(cl_fastener_location):
             in_product: [bool] Whether the fastener is installed in the product
             in_bin: [bool] Whether the fastener is ejected into the bin
         """
-        super().__init__(uid, diam, stack_thickness, tempf_nom_pos)
+        super().__init__(uid, diam, stack_thickness, fast_nom_pos)
         
         # positions
         self.__corrected_pos = None
         self.__installed_pos = None
         self.__tcp_target_pos = None
         self.__tcp_approach_pos = None
+        self.__tempf = tempf
         
         self.__distance_to_fastener = 999999.0
         self.__vector_to_fastener = [0, 0, 0]
@@ -3719,22 +3740,22 @@ class cl_fastener(cl_fastener_location):
             
         
         # properly respond to the given positions
-        if tempf_corrected_pos is None and tempf_install_pos is None:
+        if fast_corrected_pos is None and fast_install_pos is None:
             # if there was no installation yet
             self.reset_to_nom_pos_only()
         else:
-            if tempf_corrected_pos is None and tempf_install_pos is not None:
+            if fast_corrected_pos is None and fast_install_pos is not None:
                 # if only the installation position are given
-                self.__corrected_pos = tempf_nom_pos
-                self.__installed_pos = tempf_install_pos
-            elif tempf_corrected_pos is not None and tempf_install_pos is None:
+                self.__corrected_pos = fast_nom_pos
+                self.__installed_pos = fast_install_pos
+            elif fast_corrected_pos is not None and fast_install_pos is None:
                 # if only the corrected position are given
-                self.__corrected_pos = tempf_corrected_pos
-                self.__installed_pos = tempf_nom_pos
+                self.__corrected_pos = fast_corrected_pos
+                self.__installed_pos = fast_nom_pos
             else:
                 # if both are given
-                self.__corrected_pos = tempf_corrected_pos
-                self.__installed_pos = tempf_install_pos
+                self.__corrected_pos = fast_corrected_pos
+                self.__installed_pos = fast_install_pos
             
             self.calc_xy_pos_pred_acc()
             self.calc_z_pos_pred_acc()
@@ -4039,6 +4060,30 @@ class cl_fastener(cl_fastener_location):
         
         self.set_tool_center_point()
  
+
+    def is_tempf(self):
+        """returns whether the fastener is a temporary fastener."""
+        return self.__tempf
+
+
+    def is_permf(self):
+        """returns whether the fastener is a permanent fastener."""
+        return not self.__tempf
+    
+
+    def set_as_tempf(self):
+        """
+        sets the fastener to be a tepmporary fastener.
+        """
+        self.__tempf = True
+
+     
+    def set_as_permf(self):
+        """
+        sets the fastener to be a permanent fastener.
+        """
+        self.__tempf = False
+
  
     def reset_to_nom_pos_only(self):
         """
@@ -4198,7 +4243,7 @@ class cl_fastener(cl_fastener_location):
         self.__max_stack = val
  
 
-    def set_nom_axis_system_to_tempf_nom_position(self):
+    def set_nom_axis_system_to_fast_nom_position(self):
         """
         Set DR_USER_NOM on the nominal hole position of this fastener
         """
@@ -4281,7 +4326,7 @@ class cl_fastener(cl_fastener_location):
         ap_lst = get_weighted_averages(corr_lst)
  
         # ensure that DR_USER_NOM is at the nominal location of this fastener
-        self.set_nom_axis_system_to_tempf_nom_position()
+        self.set_nom_axis_system_to_fast_nom_position()
             
         if len(ap_lst) > 0:
  
@@ -4404,7 +4449,7 @@ class cl_fastener(cl_fastener_location):
         ATTENTION: Will set DR_USER_NOM on the nominal hole position of this fastener.
         """
         # ensure that DR_USER_NOM is at the nominal location of this fastener
-        self.set_nom_axis_system_to_tempf_nom_position()
+        self.set_nom_axis_system_to_fast_nom_position()
  
         # return the installed position in the DR_USER_NOM axis system
         return coord_transform(self.__installed_pos, DR_BASE, DR_USER_NOM)
@@ -4416,7 +4461,7 @@ class cl_fastener(cl_fastener_location):
         ATTENTION: Will set DR_USER_NOM on the nominal hole position of this fastener.
         """
         # ensure that DR_USER_NOM is at the nominal location of this fastener
-        self.set_nom_axis_system_to_tempf_nom_position()
+        self.set_nom_axis_system_to_fast_nom_position()
  
         # return the installed position in the DR_USER_NOM axis system
         return coord_transform(self.__corrected_pos, DR_BASE, DR_USER_NOM)
@@ -4474,103 +4519,103 @@ class cl_tl_container():
     This could be either a product or a fastener storage location.
     """  
     
-    def __init__(self, loc: cl_fastener_location = None, tempf: cl_fastener = None):
+    def __init__(self, loc: cl_fastener_location = None, fast: cl_fastener = None):
         """
         Function
         
         :param loc: cl_fastener_location,
-        :param tempf: cl_fastener,
+        :param fast: cl_fastener,
         """
         self.loc = loc
-        self.tempf = tempf
+        self.fast = fast
         
         if self.has_both():
-            if not self.is_similar(loc, tempf):
+            if not self.is_similar(loc, fast):
                 send_to_PC("cl_tl_container_init___", "fastener {} has been added to location {} \n\
                            fastener location was not the same as the location\n\
-                           fastener location has been made similar.".format(tempf.uid(), loc.uid()))
+                           fastener location has been made similar.".format(fast.uid(), loc.uid()))
                 self.set
     
     
-    def is_similar(self, loc = None, tempf = None, diff = 0.01):
+    def is_similar(self, loc = None, fast = None, diff = 0.01):
         """
         Function
         
         :param loc: cl_fastener_location, a fastener instance
-        :param tempf: cl_fastener, a location instance
+        :param fast: cl_fastener, a location instance
         :param diff: float, the difference that is allowed while still regarded as similar
  
         :return: bool
         """
-        d = self.is_same_diam(loc, tempf, diff)
-        s = self.is_same_stack(loc, tempf, diff)
-        p = self.is_same_pos(loc, tempf)
-        t = self.is_loc_within_tempf_stack_limits(tempf)
+        d = self.is_same_diam(loc, fast, diff)
+        s = self.is_same_stack(loc, fast, diff)
+        p = self.is_same_pos(loc, fast)
+        t = self.is_loc_within_fast_stack_limits(fast)
         
         return d and s and p and t
     
-    def is_same_diam(self, loc = None, tempf = None, diff = 0.01):
+    def is_same_diam(self, loc = None, fast = None, diff = 0.01):
         """
         Function
         
         :param loc: cl_fastener_location, a fastener instance
-        :param tempf: cl_fastener, a location instance
+        :param fast: cl_fastener, a location instance
         :param diff: float, the difference that is allowed while still regarded as similar
  
         :return: bool, False if nothing to compare
         """
-        if loc is None and tempf is None:
+        if loc is None and fast is None:
             if self.has_both():
-                return abs(self.tempf.diam() - self.loc.diam()) < diff
+                return abs(self.fast.diam() - self.loc.diam()) < diff
             else:
                 return False
-        elif loc is not None and tempf is not None:
-            return abs(tempf.diam() - loc.diam()) < diff
-        elif self.has_loc() and tempf is not None:
-            return abs(tempf.diam() - self.loc.diam()) < diff
-        elif loc is not None and self.has_tempf():
-            return abs(self.tempf.diam() - loc.diam()) < diff
+        elif loc is not None and fast is not None:
+            return abs(fast.diam() - loc.diam()) < diff
+        elif self.has_loc() and fast is not None:
+            return abs(fast.diam() - self.loc.diam()) < diff
+        elif loc is not None and self.has_fast():
+            return abs(self.fast.diam() - loc.diam()) < diff
         else:
             return False
     
     
-    def is_same_stack(self, loc = None, tempf = None, diff = 0.01):
+    def is_same_stack(self, loc = None, fast = None, diff = 0.01):
         """
         Function
         
         :param loc: cl_fastener_location, a fastener instance
-        :param tempf: cl_fastener, a location instance
+        :param fast: cl_fastener, a location instance
         :param diff: float, the difference that is allowed while still regarded as similar
  
         :return: bool, False if nothing to compare
         """
-        if loc is None and tempf is None:
+        if loc is None and fast is None:
             if self.has_both():
-                return abs(self.tempf.stack_thickness() - self.loc.stack_thickness()) < diff
+                return abs(self.fast.stack_thickness() - self.loc.stack_thickness()) < diff
             else:
                 return False
-        elif loc is not None and tempf is not None:
-            return abs(tempf.stack_thickness() - loc.stack_thickness()) < diff
-        elif self.has_loc() and tempf is not None:
-            return abs(tempf.stack_thickness() - self.loc.stack_thickness()) < diff
-        elif loc is not None and self.has_tempf():
-            return abs(self.tempf.stack_thickness() - loc.stack_thickness()) < diff
+        elif loc is not None and fast is not None:
+            return abs(fast.stack_thickness() - loc.stack_thickness()) < diff
+        elif self.has_loc() and fast is not None:
+            return abs(fast.stack_thickness() - self.loc.stack_thickness()) < diff
+        elif loc is not None and self.has_fast():
+            return abs(self.fast.stack_thickness() - loc.stack_thickness()) < diff
         else:
             return False
  
     
-    def is_loc_within_tempf_stack_limits(self, tempf):
+    def is_loc_within_fast_stack_limits(self, fast):
         """
         Function to check whether the stack thickness is within the 
         fastener limits.
     
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :return: bool, True if within limits
         """
-        if tempf is not None and self.loc is not None:
+        if fast is not None and self.loc is not None:
             stack_thickness = self.loc.stack_thickness()
-            t_max = tempf.max_stack()
-            t_min = tempf.min_stack()
+            t_max = fast.max_stack()
+            t_min = fast.min_stack()
             if stack_thickness <= t_max and stack_thickness >= t_min:
                 return True
             else:
@@ -4579,28 +4624,28 @@ class cl_tl_container():
             return True
         
     
-    def is_same_pos(self, loc = None, tempf = None):
+    def is_same_pos(self, loc = None, fast = None):
         """
         Function
         
         Using the cl_fastener_location __eq__ functionality
         
         :param loc: cl_fastener_location, a fastener instance
-        :param tempf: cl_fastener, a location instance
+        :param fast: cl_fastener, a location instance
  
         :return: bool, False if nothing to compare
         """
-        if loc is None and tempf is None:
+        if loc is None and fast is None:
             if self.has_both():
-                return self.tempf == self.loc
+                return self.fast == self.loc
             else:
                 return False
-        elif loc is not None and tempf is not None:
-            return loc == tempf
-        elif tempf is not None and self.has_loc():
-            return tempf == self.loc
-        elif loc is not None and self.has_tempf():
-            return self.tempf == loc
+        elif loc is not None and fast is not None:
+            return loc == fast
+        elif fast is not None and self.has_loc():
+            return fast == self.loc
+        elif loc is not None and self.has_fast():
+            return self.fast == loc
         else:
             return False
          
@@ -4614,13 +4659,13 @@ class cl_tl_container():
         return self.loc is None
     
     
-    def has_no_tempf(self):
+    def has_no_fast(self):
         """
         Function
  
         :return: bool
         """
-        return self.tempf is None
+        return self.fast is None
     
     
     def has_loc(self):
@@ -4632,13 +4677,13 @@ class cl_tl_container():
         return self.loc is not None
     
     
-    def has_tempf(self):
+    def has_fast(self):
         """
         Function
  
         :return: bool
         """
-        return self.tempf is not None
+        return self.fast is not None
     
     
     def has_nothing(self):
@@ -4647,7 +4692,7 @@ class cl_tl_container():
  
         :return: bool
         """
-        return self.has_no_loc() and self.has_no_tempf()
+        return self.has_no_loc() and self.has_no_fast()
     
     
     def has_both(self):
@@ -4658,7 +4703,7 @@ class cl_tl_container():
         :return: bool, whether there is both a fastener as
                        a location as object.
         """
-        return self.has_loc() and self.has_tempf()
+        return self.has_loc() and self.has_fast()
     
     
     def has_uid(self, uid):
@@ -4667,7 +4712,7 @@ class cl_tl_container():
  
         :return: bool
         """
-        return self.loc.uid() == uid or self.tempf.uid() == uid
+        return self.loc.uid() == uid or self.fast.uid() == uid
         
     
     def add_loc(self, uid, diam, stack_thickness, nom_pos):
@@ -4683,7 +4728,7 @@ class cl_tl_container():
         """
         if self.has_no_loc():
             loc = cl_fastener_location(uid, diam, stack_thickness, nom_pos)
-            if self.has_no_tempf():
+            if self.has_no_fast():
                 self.loc = loc
                 return True
             elif self.is_same_pos(loc = loc) and self.is_same_stack(loc = loc) and self.is_same_diam(loc = loc):
@@ -4694,14 +4739,14 @@ class cl_tl_container():
         return False
     
     
-    def add_tempf(self, uid, tempf_install_pos, diam, shaft_height, 
+    def add_fast(self, uid, fast_install_pos, diam, shaft_height, 
                   min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
-                  in_storage, in_ee, in_product, in_bin):
+                  in_storage, in_ee, in_product, in_bin, is_tempf):
         """
         Function to add a fastener to the fastener and location container
 
         :param uid: str,
-        :param tempf_install_pos: posx, will take the nominal position if not specified
+        :param fast_install_pos: posx, will take the nominal position if not specified
         :param shaft_height
         :param min_stack
         :param max_stack
@@ -4711,41 +4756,48 @@ class cl_tl_container():
         :param in_ee: bool,
         :param in_product: bool, 
         :param in_bin: bool,
+        :param is_tempf: bool
             
         :return: bool, whether the fastener has been succeesfully added
         """
         if self.has_no_loc():
             return False
             
-        if tempf_install_pos is None:
-            tempf_install_pos = tempf_nom_pos
+        if fast_install_pos is None:
+            fast_install_pos = fast_nom_pos
             
-        if self.has_no_tempf():
-            tempf_nom_pos = self.loc.nom_pos()
+        if self.has_no_fast():
+            fast_nom_pos = self.loc.nom_pos()
             diam = self.loc.diam()
             stack_thickness = self.loc.stack_thickness()      
-            tempf_corrected_pos = tempf_nom_pos
+            fast_corrected_pos = fast_nom_pos
 
-            self.tempf = cl_fastener(uid, diam, stack_thickness, tempf_nom_pos, 
-                                     tempf_corrected_pos, tempf_install_pos, 
-                                     in_storage, in_ee, in_product, in_bin)
+            self.fast = cl_fastener(uid, diam, stack_thickness, fast_nom_pos, 
+                                     fast_corrected_pos, fast_install_pos, 
+                                     in_storage, in_ee, in_product, in_bin, is_tempf)
 
         else:
-            self.tempf.set_installed_pos(tempf_install_pos)
+            self.fast.set_installed_pos(fast_install_pos)
             if in_storage: 
-                self.tempf.set_as_in_storage()
+                self.fast.set_as_in_storage()
             elif in_ee: 
-                self.tempf.set_as_in_ee()
+                self.fast.set_as_in_ee()
             elif in_product: 
-                self.tempf.set_as_in_product()
+                self.fast.set_as_in_product()
             elif in_bin: 
-                self.tempf.set_as_in_bin()
+                self.fast.set_as_in_bin()
 
-        self.tempf.set_shaft_height(shaft_height)
-        self.tempf.set_min_stack(min_stack)
-        self.tempf.set_max_stack(max_stack)
-        self.tempf.set_tcp_tip_distance(tcp_tip_dist) 
-        self.tempf.set_tcp_top_distance(tcp_top_dist)
+            if is_tempf:
+                self.fast.set_as_tempf()
+            else:
+                self.fast.set_as_permf()
+
+        self.fast.set_shaft_height(shaft_height)
+        self.fast.set_min_stack(min_stack)
+        self.fast.set_max_stack(max_stack)
+        self.fast.set_tcp_tip_distance(tcp_tip_dist) 
+        self.fast.set_tcp_top_distance(tcp_top_dist)
+
 
         return True
     
@@ -4756,9 +4808,9 @@ class cl_tl_container():
         return l
     
     
-    def remove_tempf(self):
-        tf = self.tempf
-        self.tempf = None
+    def remove_fast(self):
+        tf = self.fast
+        self.fast = None
         return tf
     
     
@@ -4773,8 +4825,8 @@ class cl_tl_container():
         """
         if self.has_loc():
             o_diam = self.loc.diam()
-        elif self.has_tempf():
-            o_diam = self.tempf.diam()
+        elif self.has_fast():
+            o_diam = self.fast.diam()
         else:
             o_diam = 0
             
@@ -4792,8 +4844,8 @@ class cl_tl_container():
         """
         if self.has_loc():
             o_stack = self.loc.stack_thickness()
-        elif self.has_tempf():
-            o_stack = self.tempf.stack_thickness()
+        elif self.has_fast():
+            o_stack = self.fast.stack_thickness()
         else:
             o_stack = 0
             
@@ -4810,12 +4862,14 @@ class cl_tl_container():
         """
         if self.has_loc():
             o_grip = self.loc.grip_length()
-        elif self.has_tempf():
-            o_grip = self.tempf.grip_length()
+        elif self.has_fast():
+            o_grip = self.fast.grip_length()
         else:
             o_grip = 0
             
         return abs(o_grip - grip) < diff
+
+
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
         
@@ -4837,7 +4891,7 @@ class cl_f_container(cl_uid):
         """
         super().__init__(uid)
         
-        self.holes_and_tempfs_lst = []  # list with list cl_tl_container
+        self.holes_and_fast_lst = []  # list with list cl_tl_container
         self.bin_contents = []          # list with cl_fastener instances
         self.bin_location = None        # posx
         self.max_obstacle_height = max_obstacle_heigth       # height of the biggest obstacle
@@ -4846,9 +4900,9 @@ class cl_f_container(cl_uid):
         #TODO make sure the approach picks this approach position    
 
  
-    def add_loc_to_holes_and_tempfs_lst(self, uid, diam, stack_thickness, nom_pos):
+    def add_loc_to_holes_and_fast_lst(self, uid, diam, stack_thickness, nom_pos):
         """
-        Function to add a location to the holes_and_tempfs_lst
+        Function to add a location to the holes_and_fast_lst
         
         :param uid: str,
         :param diam: float,
@@ -4860,23 +4914,23 @@ class cl_f_container(cl_uid):
         loc = cl_fastener_location(uid, diam, stack_thickness, nom_pos)
         
         # add to list if the same location
-        for s in self.holes_and_tempfs_lst:
+        for s in self.holes_and_fast_lst:
             if s.has_loc():
                 if s.is_same_pos(loc = loc) and s.is_same_stack(loc = loc) and s.is_same_diam(loc = loc):
-                    send_to_PC("add_loc_to_holes_and_tempfs_lst___", "Location with uid {} overwritten with location with uid {}.".format(s.loc.uid() ,uid))
+                    send_to_PC("add_loc_to_holes_and_fast_lst___", "Location with uid {} overwritten with location with uid {}.".format(s.loc.uid() ,uid))
                     s.loc = loc
                     return True
                 
-        # add the location to a new spot in holes_and_tempfs_lst
-        self.holes_and_tempfs_lst.append(cl_tl_container(loc = loc))
+        # add the location to a new spot in holes_and_fast_lst
+        self.holes_and_fast_lst.append(cl_tl_container(loc = loc))
         
         return True
  
-    def add_tempf_to_loc_with_uid(self, uid, loc_uid, tempf_install_pos, 
-                                  diam, shaft_height, min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
-                                  in_storage, in_ee, in_product, in_bin):
+    def add_fast_to_loc_with_uid(self, uid, loc_uid, fast_install_pos, 
+                                 diam, shaft_height, min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
+                                 in_storage, in_ee, in_product, in_bin, is_tempf):
         """
-        Function to add a fastener to the holes_and_tempfs_lst using
+        Function to add a fastener to the holes_and_fast_lst using
         the uid of the location.
         
         The nominal position, diameter and stac thickness of the temporary
@@ -4890,25 +4944,25 @@ class cl_f_container(cl_uid):
         loc_lst_id = self.get_loc_lst_id_by_uid(loc_uid)
         
         if loc_lst_id >= 0:
-            return self.holes_and_tempfs_lst[loc_lst_id].add_tempf(uid, tempf_install_pos, diam, shaft_height, 
-                                                                   min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
-                                                                   in_storage, in_ee, in_product, in_bin)
+            return self.holes_and_fast_lst[loc_lst_id].add_fast(uid, fast_install_pos, diam, shaft_height, 
+                                                                min_stack, max_stack, tcp_tip_dist, tcp_top_dist,
+                                                                in_storage, in_ee, in_product, in_bin, is_tempf)
  
         return False
  
  
-    def add_tempf_to_holes_and_tempfs_lst(self, uid, diam, stack_thickness, tempf_nom_pos, 
-                                          tempf_corrected_pos=None, tempf_install_pos=None, 
-                                          in_storage = False, in_ee = False, in_product=False, in_bin=False):
+    def add_fast_to_holes_and_fast_lst(self, uid, diam, stack_thickness, fast_nom_pos, 
+                                       fast_corrected_pos=None, fast_install_pos=None, 
+                                       in_storage = False, in_ee = False, in_product=False, in_bin=False, is_tempf = True):
         """
-        Function to add a fastener to the holes_and_tempfs_lst
+        Function to add a fastener to the holes_and_fast_lst
         
         :param uid: str,
         :param diam: float,
         :param stack_thickness: float,
-        :param tempf_nom_pos: posx,
-        :param tempf_corrected_pos: posx,
-        :param tempf_install_pos: posx,
+        :param fast_nom_pos: posx,
+        :param fast_corrected_pos: posx,
+        :param fast_install_pos: posx,
         :param in_storage: bool,
         :param in_ee: bool,
         :param in_product: bool, 
@@ -4917,32 +4971,32 @@ class cl_f_container(cl_uid):
         :return: bool, whether the fastener has been succeesfully added
         """
         
-        if tempf_corrected_pos is None:
-            tempf_corrected_pos = tempf_nom_pos
+        if fast_corrected_pos is None:
+            fast_corrected_pos = fast_nom_pos
             
-        if tempf_install_pos is None:
-            tempf_install_pos = tempf_nom_pos
+        if fast_install_pos is None:
+            fast_install_pos = fast_nom_pos
         
         #create the cl_fastener instance
-        tf = cl_fastener(uid, diam, stack_thickness, tempf_nom_pos, 
-                              tempf_corrected_pos, tempf_install_pos, 
-                              in_storage, in_ee, in_product, in_bin)
+        tf = cl_fastener(uid, diam, stack_thickness, fast_nom_pos, 
+                         fast_corrected_pos, fast_install_pos, 
+                         in_storage, in_ee, in_product, in_bin, is_tempf)
         
         # add to list if the same location
-        for s in self.holes_and_tempfs_lst:
-            if s.is_same_pos(tempf = tf) and s.is_same_stack(tempf = tf) and s.is_same_diam(tempf = tf):
-                s.tempf = tf
+        for s in self.holes_and_fast_lst:
+            if s.is_same_pos(fast = tf) and s.is_same_stack(fast = tf) and s.is_same_diam(fast = tf):
+                s.fast = tf
                 return True
  
-        # add the tempf to a new spot in holes_and_tempfs_lst
-        self.holes_and_tempfs_lst.append(cl_tl_container(tempf = tf))
+        # add the fast to a new spot in holes_and_fast_lst
+        self.holes_and_fast_lst.append(cl_tl_container(fast = tf))
         
         return True
     
     
-    def remove_loc_from_holes_and_tempfs_lst(self, uid):
+    def remove_loc_from_holes_and_fast_lst(self, uid):
         """
-        Function to remove a location from the holes_and_tempfs_lst
+        Function to remove a location from the holes_and_fast_lst
         
         :param uid: str, the location to be removed
             
@@ -4951,21 +5005,21 @@ class cl_f_container(cl_uid):
         loc_lst_id = self.get_loc_lst_id_by_uid(uid)
         
         if loc_lst_id > 0:
-            if self.holes_and_tempfs_lst[loc_lst_id].has_no_tempf():
+            if self.holes_and_fast_lst[loc_lst_id].has_no_fast():
                 # remove the entire position from the list
-                c = self.holes_and_tempfs_lst[loc_lst_id].pop()
+                c = self.holes_and_fast_lst[loc_lst_id].pop()
                 loc = c.loc
             else:
-                loc = self.holes_and_tempfs_lst[loc_lst_id].remove_loc()
+                loc = self.holes_and_fast_lst[loc_lst_id].remove_loc()
             return loc
         else:
-            send_to_PC("remove_loc_from_holes_and_tempfs_lst___", "unable to remove location {} from the holes_and_tempfs_lst".format(uid))
+            send_to_PC("remove_loc_from_holes_and_fast_lst___", "unable to remove location {} from the holes_and_fast_lst".format(uid))
             return None
  
  
-    def remove_tempf_from_holes_and_tempfs_lst(self, uid):
+    def remove_fast_from_holes_and_fast_lst(self, uid):
         """
-        Function to add a fastener to the holes_and_tempfs_lst
+        Function to add a fastener to the holes_and_fast_lst
         
         :param uid: str,
             
@@ -4973,7 +5027,7 @@ class cl_f_container(cl_uid):
         """
         loc_lst_id = self.get_loc_lst_id_by_uid(uid)
         
-        return self.remove_tempf_from_location(loc_lst_id)
+        return self.remove_fast_from_location(loc_lst_id)
     
     
     def check_lst_lenght(self, loc_lst_id):
@@ -4989,7 +5043,7 @@ class cl_f_container(cl_uid):
         if loc_lst_id < 0:
             return False
         else:
-            if loc_lst_id >= len(self.holes_and_tempfs_lst):
+            if loc_lst_id >= len(self.holes_and_fast_lst):
                 send_to_PC("check_lst_lenght___", "{} location id {} is larger than the list length.".format(self.uid(), loc_lst_id)) 
                 return False
             else: 
@@ -5007,27 +5061,27 @@ class cl_f_container(cl_uid):
         if not self.check_lst_lenght(loc_lst_id):
             return False
         else:
-            if self.holes_and_tempfs_lst[loc_lst_id].has_no_tempf():
-                send_to_PC("loc_is_empty___", "Action {}: location {} is already occupied.".format(self.uid(), self.holes_and_tempfs_lst[loc_lst_id].loc.uid()))
+            if self.holes_and_fast_lst[loc_lst_id].has_no_fast():
+                send_to_PC("loc_is_empty___", "Action {}: location {} is already occupied.".format(self.uid(), self.holes_and_fast_lst[loc_lst_id].loc.uid()))
                 return False
             else: 
                 return True
     
     
-    def check_diam(self, tempf, loc_lst_id, diff = 0.01):
+    def check_diam(self, fast, loc_lst_id, diff = 0.01):
         """
         Function to check whether the diameters of a fastener and
         storage location match.
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
         
         :return: bool, True if the difference in diameter is smaller than diff
         """
         if self.check_lst_lenght(loc_lst_id):
-            if self.holes_and_tempfs_lst[loc_lst_id].is_same_diam(tempf = tempf, diff = diff):
+            if self.holes_and_fast_lst[loc_lst_id].is_same_diam(fast = fast, diff = diff):
                 send_to_PC("check_diam___", "Action {}: fastener {} and location {} have a different diameter."
-                      .format(self.uid(), tempf.uid(), self.holes_and_tempfs_lst[loc_lst_id].tempf.uid()))
+                      .format(self.uid(), fast.uid(), self.holes_and_fast_lst[loc_lst_id].fast.uid()))
                 return False
             else:
                 return True
@@ -5035,41 +5089,41 @@ class cl_f_container(cl_uid):
             return False
     
     
-    def check_stack_thickness(self, tempf, loc_lst_id):
+    def check_stack_thickness(self, fast, loc_lst_id):
         """
         Function to check whether the stack thickness is within the 
         fastener limits.
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
                 
         :return: bool, True if within the limits
         """
         if self.check_lst_lenght(loc_lst_id):
-            return self.holes_and_tempfs_lst[loc_lst_id].is_loc_within_tempf_stack_limits(tempf)
+            return self.holes_and_fast_lst[loc_lst_id].is_loc_within_fast_stack_limits(fast)
         else:
             return False
                 
     
-    def same_pos(self, tempf, loc_lst_id):
+    def same_pos(self, fast, loc_lst_id):
         """
         Function to check whether the locations of a fastener and
         storage location match.
         
         Using the cl_fastener_location __eq__ functionality
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
         
         :return: bool, True if the location is similar
         """
         if self.check_lst_lenght(loc_lst_id):
-            return self.holes_and_tempfs_lst[loc_lst_id].is_same_pos(tempf = tempf)
+            return self.holes_and_fast_lst[loc_lst_id].is_same_pos(fast = fast)
         else:
             return False
     
     
-    def check_tempf_and_location(self, tempf, loc_lst_id):
+    def check_fast_and_location(self, fast, loc_lst_id):
         """
         Function to check whether
         - the location list ID is within the list length
@@ -5078,93 +5132,93 @@ class cl_f_container(cl_uid):
         - the locations of a fastener and storage location match
         - the stack thickness is within the min and max of the fastener
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
         
         :return: bool, True if it passes all tests
         """
         if self.check_lst_lenght(loc_lst_id):
-            s = self.holes_and_tempfs_lst[loc_lst_id].is_similar(tempf = tempf)
-            e = self.holes_and_tempfs_lst[loc_lst_id].has_no_tempf()
+            s = self.holes_and_fast_lst[loc_lst_id].is_similar(fast = fast)
+            e = self.holes_and_fast_lst[loc_lst_id].has_no_fast()
             return s and e
         else:
             return False
     
     
-    def add_tempf_to_location(self, tempf, loc_lst_id):
+    def add_fast_to_location(self, fast, loc_lst_id):
         """
         Function to add a fastener object to a storage location
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
         
-        :return: bool, True if successful (also passed check_tempf_and_location function)
+        :return: bool, True if successful (also passed check_fast_and_location function)
         """
-        if self.check_tempf_and_location(tempf, loc_lst_id):
-            self.holes_and_tempfs_lst[loc_lst_id].tempf = tempf
+        if self.check_fast_and_location(fast, loc_lst_id):
+            self.holes_and_fast_lst[loc_lst_id].fast = fast
             if self.__storage: 
-                if not tempf.in_storage: # we don't want this to be done twice because it will potentially set a new TCP
-                    tempf.set_as_in_storage()
+                if not fast.in_storage: # we don't want this to be done twice because it will potentially set a new TCP
+                    fast.set_as_in_storage()
             else:
-                if not tempf.in_product: 
-                    tempf.set_as_in_product()
+                if not fast.in_product: 
+                    fast.set_as_in_product()
             return True
         else:
             return False
  
     
-    def add_tempf_to_bin(self, tempf):
+    def add_fast_to_bin(self, fast):
         """
         Function to add a fastener into the bin
         Can only be done when the container is a storage location.
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         
         :return: bool, success
         """
         if self.__storage:
-            self.bin_contents.append(tempf)
-            tempf.set_as_in_bin()
+            self.bin_contents.append(fast)
+            fast.set_as_in_bin()
             return True
         else:
             return False
  
     
-    def set_location_as_tempf_target(self, tempf, loc_lst_id):
+    def set_location_as_fast_target(self, fast, loc_lst_id):
         """
         Function to set the storage location as the target of a
         fastener object.
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         :param loc_lst_id: int, the location number
         
         :return: int, loc_lst_id if successful (also passed checks), -1 if unsuccessful
         """
         if self.check_lst_lenght(loc_lst_id):
-            tl = self.holes_and_tempfs_lst[loc_lst_id]
-            if tl.has_no_tempf():
-                if tl.is_same_diam(tempf = tempf) and tl.is_loc_within_tempf_stack_limits(tempf = tempf):
-                    tempf.set_nom_pos(self.holes_and_tempfs_lst[loc_lst_id].loc.nom_pos())
-                    tempf.set_stack_thickness(self.holes_and_tempfs_lst[loc_lst_id].loc.stack_thickness())
-                    tempf.reset_to_nom_pos_only()
+            tl = self.holes_and_fast_lst[loc_lst_id]
+            if tl.has_no_fast():
+                if tl.is_same_diam(fast = fast) and tl.is_loc_within_fast_stack_limits(fast = fast):
+                    fast.set_nom_pos(self.holes_and_fast_lst[loc_lst_id].loc.nom_pos())
+                    fast.set_stack_thickness(self.holes_and_fast_lst[loc_lst_id].loc.stack_thickness())
+                    fast.reset_to_nom_pos_only()
                     return loc_lst_id
         return -1
         
     
-    def set_bin_location_as_tempf_target(self, tempf):
+    def set_bin_location_as_fast_target(self, fast):
         """
         Function to set the bin location as the target of a fastener object. 
         Can only be done when the container is a storage location.
         
-        :param tempf: cl_fastener, the fastener object
+        :param fast: cl_fastener, the fastener object
         
         :return: bool, success
         """
         
         if self.__storage:
-            tempf.set_nom_pos(self.bin_location)
-            tempf.set_stack_thickness(-1)
-            tempf.reset_to_nom_pos_only()
+            fast.set_nom_pos(self.bin_location)
+            fast.set_stack_thickness(-1)
+            fast.reset_to_nom_pos_only()
             return True
         else:
             return False
@@ -5177,18 +5231,18 @@ class cl_f_container(cl_uid):
         
         :return: int, the id number if successful, -1 if unsuccessful
         """
-        for i, ht in enumerate(self.holes_and_tempfs_lst):
+        for i, ht in enumerate(self.holes_and_fast_lst):
             if ht.has_loc():
                 if ht.loc.uid() == uid:
                     return i
-            if ht.has_tempf():
-                if ht.tempf.uid() == uid:
+            if ht.has_fast():
+                if ht.fast.uid() == uid:
                     return i
         send_to_PC("get_loc_lst_id_by_uid___", "unable to find a fastener or location with uid {}.".format(uid))
         return -1
         
     
-    def remove_tempf_from_location(self, loc_lst_id):
+    def remove_fast_from_location(self, loc_lst_id):
         """
         Function to remove a fastener object from a container location
         
@@ -5199,10 +5253,10 @@ class cl_f_container(cl_uid):
         if not self.check_lst_lenght(loc_lst_id):
             return None
         else:
-            return self.holes_and_tempfs_lst[loc_lst_id].remove_tempf()
+            return self.holes_and_fast_lst[loc_lst_id].remove_fast()
         
         
-    def find_tempf_id_of_diam(self, diam):
+    def find_fast_id_of_diam(self, diam):
         """
         Function to find the list ID of a location with a fastener 
         in the container with a certain diameter
@@ -5212,12 +5266,12 @@ class cl_f_container(cl_uid):
         
         :param diam: float, the diameter of the fastener
         """
-        for i, s in enumerate(self.holes_and_tempfs_lst):
-            if s.has_tempf():
+        for i, s in enumerate(self.holes_and_fast_lst):
+            if s.has_fast():
                 if s.has_diam(diam):
                     return i
                 
-        send_to_PC("find_tempf_id_of_diam___", "no fastener available with diameter {}.".format(diam))
+        send_to_PC("find_fast_id_of_diam___", "no fastener available with diameter {}.".format(diam))
         return 0
     
     
@@ -5229,8 +5283,8 @@ class cl_f_container(cl_uid):
         
         :return: int, the ID of the location if successful, -1 if no empty spot can be found
         """
-        for i, s in enumerate(self.holes_and_tempfs_lst):
-            if s.has_no_tempf():
+        for i, s in enumerate(self.holes_and_fast_lst):
+            if s.has_no_fast():
                 if s.has_diam(diam):
                     return i
                 
@@ -5238,18 +5292,18 @@ class cl_f_container(cl_uid):
         return -1
     
  
-    def find_empty_spot_and_set_as_target(self, tempf):
+    def find_empty_spot_and_set_as_target(self, fast):
         """
         Function to find the ID of an empty spot with a certain diameter
         and set the location as target of the fastener
         
-        :param tempf: cl_fastener, the location number
+        :param fast: cl_fastener, the location number
         
         :return: int, the ID of the location if successful, -1 if no empty spot can be found
         """
-        loc_lst_id = self.find_empty_spot_of_diam(tempf.diam())
+        loc_lst_id = self.find_empty_spot_of_diam(fast.diam())
  
-        return self.set_location_as_tempf_target(tempf, loc_lst_id)
+        return self.set_location_as_fast_target(fast, loc_lst_id)
     
  
     def number_fasts_of_diam(self, diam):
@@ -5261,8 +5315,8 @@ class cl_f_container(cl_uid):
         :return: int, the number of fasteners available with a certain diameter
         """
         n = 0
-        for s in self.holes_and_tempfs_lst:
-            if s.has_tempf():
+        for s in self.holes_and_fast_lst:
+            if s.has_fast():
                 if s.has_diam(diam):
                     n += 1
         
@@ -5278,8 +5332,8 @@ class cl_f_container(cl_uid):
         :return: int, the number of empty spots available with a certain diameter
         """
         n = 0
-        for s in self.holes_and_tempfs_lst:
-            if s.has_no_tempf():
+        for s in self.holes_and_fast_lst:
+            if s.has_no_fast():
                 if s.has_diam(diam):
                     n += 1
         
@@ -5295,17 +5349,17 @@ class cl_f_container(cl_uid):
         return len(self.bin_contents)
     
     
-    def log_holes_and_tempfs_lst(self):
+    def log_holes_and_fast_lst(self):
         """
         """
-        string_out = "{} instances exist in the container {}.\n[".format(len(self.holes_and_tempfs_lst), self.uid())
-        for i, ht in enumerate(self.holes_and_tempfs_lst):
+        string_out = "{} instances exist in the container {}.\n[".format(len(self.holes_and_fast_lst), self.uid())
+        for i, ht in enumerate(self.holes_and_fast_lst):
             if ht.has_loc():
                 string_out += "loc:{}; d{}, ".format(ht.loc.uid(), ht.loc.diam())
-            if ht.has_tempf():
-                string_out += "temp:{}; d{}, ".format(ht.tempf.uid(), ht.tempf.diam())
+            if ht.has_fast():
+                string_out += "temp:{}; d{}, ".format(ht.fast.uid(), ht.fast.diam())
         string_out += "]"
-        send_to_PC("log_holes_and_tempfs_lst___", string_out)
+        send_to_PC("log_holes_and_fast_lst___", string_out)
     
     
     def number_fasteners_of_diam_grip(self, diam, grip):
@@ -5317,8 +5371,8 @@ class cl_f_container(cl_uid):
         :return: int, the number of fasteners available with a certain diameter and grip length code
         """
         n = 0
-        for s in self.holes_and_tempfs_lst:
-            if s.has_tempf():
+        for s in self.holes_and_fast_lst:
+            if s.has_fast():
                 if s.has_diam(diam) and s.has_grip(grip):
                     n += 1
         
@@ -5336,12 +5390,12 @@ class cl_f_container(cl_uid):
         :param diam: float, the diameter of the fastener
         :param grip: float, the grip length code of the fastener
         """
-        for i, s in enumerate(self.holes_and_tempfs_lst):
-            if s.has_tempf():
+        for i, s in enumerate(self.holes_and_fast_lst):
+            if s.has_fast():
                 if s.has_diam(diam) and s.has_grip(grip):
                     return i
                 
-        send_to_PC("find_tempf_id_of_diam___", "no fastener available with diameter {}.".format(diam)) #add grip to error message
+        send_to_PC("find_fast_id_of_diam___", "no fastener available with diameter {}.".format(diam)) #add grip to error message
         return 0
 
 
@@ -5402,7 +5456,11 @@ class cl_agent(cl_uid):
         """
         a = self._get_from_lst_by_uid(self.actions, uid, "", False)
             
-        if not a.is_done():
+        if a.is_cancelled():
+            a.set_as_not_cancelled()
+            send_to_PC("execute___", "Action with uid {} was uncancelled and will be executed.".format(a.uid()))
+
+        if not a.is_done(): 
             succes = False
             
             if a.is_move_waypoint():
@@ -5417,12 +5475,11 @@ class cl_agent(cl_uid):
                 send_to_PC("execute___", "{}: unknown ation type: {}".format(a.uid(), a.a_type()))
                 
             if succes:
-                send_to_PC("execute___", "{} succesfully executed.".format(a.uid()))
                 a.set_as_done()
-            else:
-                send_to_PC("execute___", "{} failed.".format(a.uid()))
-        else:
-            send_to_PC("execute___", "{}: already executed.".format(a.uid()))
+
+        return_str = actions_str_to_server(agent.actions)
+
+        send_to_PC("", return_str)
         
         
     def execute_all(self):
@@ -5435,7 +5492,8 @@ class cl_agent(cl_uid):
             return False
         
         for a in self.actions:
-            self.execute_uid(a.uid())
+            if not a.is_cancelled():
+                self.execute_uid(a.uid())
             
     
     def move_to_waypoint(self, wp_uid, wait = True, speed = 100):
@@ -5457,8 +5515,83 @@ class cl_agent(cl_uid):
         return 1
  
     def install_permf(self, target_loc_uid = "", speed = 100):
-        #TODO define function and make sure the install_tempf function is for tempf
-        pass
+        """
+        Function to install a permanent fastener in the product.
+        
+        The function will
+        1) find out what diameter is needed
+        2) find a compatible fastener that is available in the storage location
+        3) pick up the fastener
+        4) move to the target location in the product
+        5) insert and install the fastener
+        6) retract the end effector away from the product
+        
+        :param target_loc_uid: str, the uid of the target location in the product 
+        :param speed: float, the speed as percentage of the maximum speed
+            
+        :return: bool, returns True if successful
+        """
+        prod_lst_id = self.product.get_loc_lst_id_by_uid(target_loc_uid)
+        
+        if prod_lst_id < 0:
+            return False
+        
+        # find the diameter that needs to be installed
+        diam = self.product.holes_and_fast_lst[prod_lst_id].loc.diam()
+        
+        # find the grip that needs to be installed
+        grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
+        
+        storage_loc_id = self.tempf_storage.find_fastener_id_of_diam_grip(diam,grip)
+         
+        # get the permf object
+        tempf = self.tempf_storage.holes_and_fast_lst[storage_loc_id].fast
+        
+        # we assume that the install position is known for every temporary
+        # fastener that is picked up. Therefore we set the install position
+        # to be the primary position by parsing it into the corrected position
+        tempf.reset_to_installed_pos()
+        
+        # set the tempf tcp correctly
+        tempf.set_tool_center_point()
+        #tp_popup("Check fastener")
+        # pick up the fastener from the storage
+        if not self._pick_up_tempf(tempf, self._tempf_storage_approach_pos()):
+            #TODO: decide whether to remove the fastener from the 
+            #      possible fasteners to be picked up...
+            
+            # return failure; the ee will be above the tempf location 
+            return False
+        else:    
+            # remove the tempf object from the storage location
+            self.tempf_storage.remove_fast_from_location(storage_loc_id)
+            
+            # move to the product apprach position
+            movel(self._product_approach_pos(), ref=DR_BASE, r = BLEND_RADIUS_LARGE)
+            #tp_popup("Check fastener")
+            # set the product location as the tempf target
+            self.product.set_location_as_fast_target(tempf, prod_lst_id)
+            
+            # move to the hole apprach position
+            movel(tempf.tcp_approach_pos(), ref=DR_BASE)
+ 
+            # calculate the corrected position of the fastener 
+            # based on all inserted fasteners in the product
+            #TODO perform calculation earlier in a seperate stream if this takes a while
+            tempf.calc_and_set_corrected_pos(self._get_all_tempfs_in_product())
+            
+            
+            # insert the fastener into the product
+            if self._insert_tempf(tempf, self._product_approach_pos()):
+                # add the fastener to the product
+                if self.product.add_fast_to_location(tempf, prod_lst_id):
+                    reevaluate_deviations(tempf, self._get_all_tempfs_in_product())
+                    
+                    Z_PREDICTION_LAST_FAST_OK = tempf.is_z_pos_well_predicted
+                    return True
+            
+            return False
+            
         
     def install_tempf(self, target_loc_uid = "", speed = 100):
         """
@@ -5483,14 +5616,14 @@ class cl_agent(cl_uid):
             return False
         
         # find the diameter that needs to be installed
-        diam = self.product.holes_and_tempfs_lst[prod_lst_id].loc.diam()
+        diam = self.product.holes_and_fast_lst[prod_lst_id].loc.diam()
         
         # find the grip that needs to be installed
-        grip = self.product.holes_and_tempfs_lst[prod_lst_id].loc.grip_length()
+        grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
         
         if CODE_IS_USED_FOR_PERMANENT_FASTENING == False:
             # find the spot in the storage location where a fastener resides
-            storage_loc_id = self.tempf_storage.find_tempf_id_of_diam(diam)
+            storage_loc_id = self.tempf_storage.find_fast_id_of_diam(diam)
         
         elif CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
             #finds the correct fastener in storage
@@ -5500,7 +5633,7 @@ class cl_agent(cl_uid):
             send_to_PC("Error, CODE_IS_USED_FOR_PERMANENT_FASTENING is not True or False")
             return False   
         # get the tempf object
-        tempf = self.tempf_storage.holes_and_tempfs_lst[storage_loc_id].tempf
+        tempf = self.tempf_storage.holes_and_fast_lst[storage_loc_id].fast
         
         # we assume that the install position is known for every temporary
         # fastener that is picked up. Therefore we set the install position
@@ -5519,13 +5652,13 @@ class cl_agent(cl_uid):
             return False
         else:    
             # remove the tempf object from the storage location
-            self.tempf_storage.remove_tempf_from_location(storage_loc_id)
+            self.tempf_storage.remove_fast_from_location(storage_loc_id)
             
             # move to the product apprach position
             movel(self._product_approach_pos(), ref=DR_BASE, r = BLEND_RADIUS_LARGE)
             #tp_popup("Check fastener")
             # set the product location as the tempf target
-            self.product.set_location_as_tempf_target(tempf, prod_lst_id)
+            self.product.set_location_as_fast_target(tempf, prod_lst_id)
             
             # move to the hole apprach position
             movel(tempf.tcp_approach_pos(), ref=DR_BASE)
@@ -5539,7 +5672,7 @@ class cl_agent(cl_uid):
             # insert the fastener into the product
             if self._insert_tempf(tempf, self._product_approach_pos()):
                 # add the fastener to the product
-                if self.product.add_tempf_to_location(tempf, prod_lst_id):
+                if self.product.add_fast_to_location(tempf, prod_lst_id):
                     reevaluate_deviations(tempf, self._get_all_tempfs_in_product())
                     
                     Z_PREDICTION_LAST_FAST_OK = tempf.is_z_pos_well_predicted
@@ -5571,7 +5704,7 @@ class cl_agent(cl_uid):
             return False
         
         # get the fastener object that needs to be removed
-        tempf = self.product.holes_and_tempfs_lst[prod_lst_id].tempf
+        tempf = self.product.holes_and_fast_lst[prod_lst_id].fast
         
         # find an empty spot with the correct diameter in the storage location
         storage_loc_id = self.tempf_storage.find_empty_spot_of_diam(tempf.diam())
@@ -5594,16 +5727,16 @@ class cl_agent(cl_uid):
             return False
         else:    
             # remove the tempf object from the storage location
-            self.product.remove_tempf_from_location(prod_lst_id)
+            self.product.remove_fast_from_location(prod_lst_id)
             
             # move to the storage apprach position
             movel(self._tempf_storage_approach_pos(), ref=DR_BASE)
             
             # set the product location as the tempf target
-            self.tempf_storage.set_location_as_tempf_target(tempf, storage_loc_id)
+            self.tempf_storage.set_location_as_fast_target(tempf, storage_loc_id)
             
             # move to the hole apprach position
-            movel(self.tempf.tcp_approach_pos())
+            movel(self.fast.tcp_approach_pos())
                  
             # we assume that the install position is known for every storage
             # location. Therefore we set the install position
@@ -5613,7 +5746,7 @@ class cl_agent(cl_uid):
             # insert the fastener into the product
             if self._insert_tempf(tempf, self._tempf_storage_approach_pos()):
                 # add the fastener to the product
-                return self.tempf_storage.add_tempf_to_location(tempf, storage_loc_id)
+                return self.tempf_storage.add_fast_to_location(tempf, storage_loc_id)
             
             return False
       
@@ -6156,7 +6289,7 @@ class cl_agent(cl_uid):
         if uid is not None:
             return self._get_fastener_by_uid(uid)
         if diam is not None:
-            return self.tempf_storage.find_tempf_id_of_diam(diam)
+            return self.tempf_storage.find_fast_id_of_diam(diam)
         return 0       
  
     
@@ -6166,8 +6299,8 @@ class cl_agent(cl_uid):
             
         :return: list[cl_fastener_location]
         """
-        lst1 = [l.loc for l in self.tempf_storage.holes_and_tempfs_lst if l.loc is not None]
-        lst2 = [l.loc for l in self.product.holes_and_tempfs_lst if l.loc is not None]
+        lst1 = [l.loc for l in self.tempf_storage.holes_and_fast_lst if l.loc is not None]
+        lst2 = [l.loc for l in self.product.holes_and_fast_lst if l.loc is not None]
         return lst1 + lst2
  
     
@@ -6180,24 +6313,43 @@ class cl_agent(cl_uid):
         :return: cl_fastener_location, the location with the specified uid
         """       
         return self._get_from_lst_by_uid(self._get_all_locs(), uid, "location")
-       
     
+    def _get_all_permfs_in_storage(self):
+        """
+        Function that returns a list with all fasteners in the storage
+            
+        :return: list cl_fastener,
+        """
+        return [f.fast for f in self.permf_storage.holes_and_fast_lst if f.fast is not None]
+    
+
     def _get_all_tempfs_in_storage(self):
         """
         Function that returns a list with all fasteners in the storage
             
-        :return: listcl_fastener,
+        :return: list cl_fastener,
         """
-        return [f.tempf for f in self.tempf_storage.holes_and_tempfs_lst if f.tempf is not None]
+        return [f.fast for f in self.tempf_storage.holes_and_fast_lst if f.fast is not None]
         
+
+    def _get_all_permfs_in_product(self):
+        """
+        Function that returns a list with all fasteners in the product
+            
+        :return: list cl_fastener,
+        """
+        lst = [f.fast for f in self.product.holes_and_fast_lst if f.fast is not None]
+        return [f for f in lst if f.is_permf()]
     
+
     def _get_all_tempfs_in_product(self):
         """
         Function that returns a list with all fasteners in the product
             
-        :return: listcl_fastener,
+        :return: list cl_fastener,
         """
-        return [f.tempf for f in self.product.holes_and_tempfs_lst if f.tempf is not None]
+        lst = [f.fast for f in self.product.holes_and_fast_lst if f.fast is not None]
+        return [f for f in lst if f.is_tempf()]
         
     
     def _get_all_tempfs(self):
@@ -6514,6 +6666,8 @@ class cl_action(cl_uid):
         self.set_a_type(a_type)
         self.__loc_uid = loc_uid
         self.__is_done = is_done
+        self.__is_cancelled = False
+        self.__is_failed = False
         self.__speed = speed
  
     
@@ -6625,7 +6779,53 @@ class cl_action(cl_uid):
         """
         self.__is_done = False
         
+
+    def is_waiting(self):
+        """
+        Gets whether the action is waiting.
+        
+        :return: bool, whether the action is waiting.
+        """
+        return self.__is_waiting
     
+ 
+    def set_as_waiting(self):
+        """
+        Sets the action as is waiting.
+        """
+        self.__is_waiting = True
+        
+ 
+    def set_as_not_waiting(self):
+        """
+        Sets the action as not waiting.
+        """
+        self.__is_waiting = False
+        
+    
+    def is_cancelled(self):
+        """
+        Gets whether the action is cancelled.
+        
+        :return: bool, whether the action is cancelled.
+        """
+        return self.__is_cancelled
+    
+ 
+    def set_as_cancelled(self):
+        """
+        Sets the action as cancelled.
+        """
+        self.__is_cancelled = True
+        
+ 
+    def set_as_not_cancelled(self):
+        """
+        Sets the action as uncancelled.
+        """
+        self.__is_cancelled = False
+    
+
     def speed(self):
         """
         Gets the speed as percentage of the maximum speed.
@@ -6735,126 +6935,126 @@ DR_USER_PROBE = create_axis_syst_on_current_position()
 DR_USER_NOM_OPP = create_axis_syst_on_current_position()
 
 # create a class that contains all available storage locations
-storage = cl_f_container("storage", 30, approach_pos_uid)
+storage = cl_f_container("storage", 30, "storage_approach_pos")
  
  
 # add some tempf objects in the storage  
 #1
-storage.add_loc_to_holes_and_tempfs_lst("st_01_01", 4.8, 9, posx(-745.850,573.600,666.230,90.5,69.29,-89.92))
+storage.add_loc_to_holes_and_fast_lst("st_01_01", 4.8, 9, posx(-745.850,573.600,666.230,90.5,69.29,-89.92))
 # #2
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_02", 4.8, 9, posx(-710.820,573.620,666.380,90.7,70.24,-90.62))
+# storage.add_loc_to_holes_and_fast_lst("st_01_02", 4.8, 9, posx(-710.820,573.620,666.380,90.7,70.24,-90.62))
 # #3
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_03", 4.8, 9, posx(-663.620,574.360,664.990,90.7,70.24,-90.62))
+# storage.add_loc_to_holes_and_fast_lst("st_01_03", 4.8, 9, posx(-663.620,574.360,664.990,90.7,70.24,-90.62))
 # #4
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_04", 4.8, 9, posx(-628.870,575.560,665.230,90.7,70.24,-90.62))
+# storage.add_loc_to_holes_and_fast_lst("st_01_04", 4.8, 9, posx(-628.870,575.560,665.230,90.7,70.24,-90.62))
 # #5
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_05", 4.8, 9, posx(-593.620,575.610,665.310,90.7,70.24,-90.62))
+# storage.add_loc_to_holes_and_fast_lst("st_01_05", 4.8, 9, posx(-593.620,575.610,665.310,90.7,70.24,-90.62))
 # #6
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_06", 4.8, 9, posx(-559.250,575.320,665.010,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_06", 4.8, 9, posx(-559.250,575.320,665.010,90,68.82,-90))
 # #7
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_07", 4.8, 9, posx(-558.960,588.730,632.490,89.44,70.14,-90.74))
+# storage.add_loc_to_holes_and_fast_lst("st_01_07", 4.8, 9, posx(-558.960,588.730,632.490,89.44,70.14,-90.74))
 # #8
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_08", 4.8, 9, posx(-594.270,586.88,632.540,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_08", 4.8, 9, posx(-594.270,586.88,632.540,90,68.82,-90))
 # #9
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_09", 4.8, 9, posx(-629.170,586.620,632.360,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_09", 4.8, 9, posx(-629.170,586.620,632.360,90,68.82,-90))
 # #10
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_10", 4.8, 9, posx(-663.930,586.270,632.370,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_10", 4.8, 9, posx(-663.930,586.270,632.370,90,68.82,-90))
 # #11
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_11", 4.8, 9, posx(-711.280,584.840,633.390,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_11", 4.8, 9, posx(-711.280,584.840,633.390,90,68.82,-90))
 # #12
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_12", 4.8, 9, posx(-746.280,583.710,633.090,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_12", 4.8, 9, posx(-746.280,583.710,633.090,90,68.82,-90))
 # #13
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_13", 4.8, 9, posx(-780.970,583.530,632.830,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_13", 4.8, 9, posx(-780.970,583.530,632.830,90,68.82,-90))
 # #14
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_14", 4.8, 9, posx(-781.1,595.870,600.450,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_14", 4.8, 9, posx(-781.1,595.870,600.450,90,68.82,-90))
 # #15
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_15", 4.8, 9, posx(-746.480,596.740,600.660,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_15", 4.8, 9, posx(-746.480,596.740,600.660,90,68.82,-90))
 # #16
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_16", 4.8, 9, posx(-711.440,596.650,600.610,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_16", 4.8, 9, posx(-711.440,596.650,600.610,90,68.82,-90))
 # #17
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_17", 4.8, 9, posx(-664.140,597.940,599.570,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_17", 4.8, 9, posx(-664.140,597.940,599.570,90,68.82,-90))
 # #18
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_18", 4.8, 9, posx(-629.360,598.540,599.280,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_18", 4.8, 9, posx(-629.360,598.540,599.280,90,68.82,-90))
 # #19
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_19", 4.8, 9, posx(-594.260,599.580,599.150,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_19", 4.8, 9, posx(-594.260,599.580,599.150,90,68.82,-90))
 # #20
-# storage.add_loc_to_holes_and_tempfs_lst("st_01_20", 4.8, 9, posx(-559.370,600.280,599.18,90,68.82,-90))
+# storage.add_loc_to_holes_and_fast_lst("st_01_20", 4.8, 9, posx(-559.370,600.280,599.18,90,68.82,-90))
  
 # add a fastener in storage
-storage.add_tempf_to_loc_with_uid("Temp_01", "st_01_01")
-# storage.add_tempf_to_loc_with_uid("Temp_02", "st_01_02")
-# storage.add_tempf_to_loc_with_uid("Temp_03", "st_01_03")
-# storage.add_tempf_to_loc_with_uid("Temp_04", "st_01_04")
-# storage.add_tempf_to_loc_with_uid("Temp_05", "st_01_05")
-# storage.add_tempf_to_loc_with_uid("Temp_06", "st_01_06")
-# storage.add_tempf_to_loc_with_uid("Temp_07", "st_01_07")
-# storage.add_tempf_to_loc_with_uid("Temp_08", "st_01_08")
-# storage.add_tempf_to_loc_with_uid("Temp_09", "st_01_09")
-# storage.add_tempf_to_loc_with_uid("Temp_10", "st_01_10")
-# storage.add_tempf_to_loc_with_uid("Temp_11", "st_01_11")
-# storage.add_tempf_to_loc_with_uid("Temp_12", "st_01_12")
-# storage.add_tempf_to_loc_with_uid("Temp_13", "st_01_13")
-# storage.add_tempf_to_loc_with_uid("Temp_14", "st_01_14")
-# storage.add_tempf_to_loc_with_uid("Temp_15", "st_01_15")
-# storage.add_tempf_to_loc_with_uid("Temp_16", "st_01_16")
-# storage.add_tempf_to_loc_with_uid("Temp_17", "st_01_17")
-# storage.add_tempf_to_loc_with_uid("Temp_18", "st_01_18")
-# storage.add_tempf_to_loc_with_uid("Temp_19", "st_01_19")
-# storage.add_tempf_to_loc_with_uid("Temp_20", "st_01_20")
+storage.add_fast_to_loc_with_uid("Temp_01", "st_01_01")
+# storage.add_fast_to_loc_with_uid("Temp_02", "st_01_02")
+# storage.add_fast_to_loc_with_uid("Temp_03", "st_01_03")
+# storage.add_fast_to_loc_with_uid("Temp_04", "st_01_04")
+# storage.add_fast_to_loc_with_uid("Temp_05", "st_01_05")
+# storage.add_fast_to_loc_with_uid("Temp_06", "st_01_06")
+# storage.add_fast_to_loc_with_uid("Temp_07", "st_01_07")
+# storage.add_fast_to_loc_with_uid("Temp_08", "st_01_08")
+# storage.add_fast_to_loc_with_uid("Temp_09", "st_01_09")
+# storage.add_fast_to_loc_with_uid("Temp_10", "st_01_10")
+# storage.add_fast_to_loc_with_uid("Temp_11", "st_01_11")
+# storage.add_fast_to_loc_with_uid("Temp_12", "st_01_12")
+# storage.add_fast_to_loc_with_uid("Temp_13", "st_01_13")
+# storage.add_fast_to_loc_with_uid("Temp_14", "st_01_14")
+# storage.add_fast_to_loc_with_uid("Temp_15", "st_01_15")
+# storage.add_fast_to_loc_with_uid("Temp_16", "st_01_16")
+# storage.add_fast_to_loc_with_uid("Temp_17", "st_01_17")
+# storage.add_fast_to_loc_with_uid("Temp_18", "st_01_18")
+# storage.add_fast_to_loc_with_uid("Temp_19", "st_01_19")
+# storage.add_fast_to_loc_with_uid("Temp_20", "st_01_20")
 ###########################################
  
 # create a class that contains all available hole positions in the product
-product = cl_f_container("product", 30, approach_pos_uid)
+product = cl_f_container("product", 30, "product_approach_pos")
  
  
  
 # add some tempf objects in the product  
  
-product.add_loc_to_holes_and_tempfs_lst("pr_01_01", 4.8, 9, posx(-715.820,573.620,666.380,96.82,70.24,-90.62)) #x = -710.820 a = 90.7 ; y = 573.620 z = 666.380
+product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-715.820,573.620,666.380,96.82,70.24,-90.62)) #x = -710.820 a = 90.7 ; y = 573.620 z = 666.380
  
 # #1
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_01", 4.8, 9, posx(-749.610,742.340,296.090,90.64,61.47,-91.01))
+# product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-749.610,742.340,296.090,90.64,61.47,-91.01))
 # #2
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_02", 4.8, 9, posx(-750.300,747.700,281.550,91.24,63,-91.24))
+# product.add_loc_to_holes_and_fast_lst("pr_01_02", 4.8, 9, posx(-750.300,747.700,281.550,91.24,63,-91.24))
 # #3
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_03", 4.8, 9, posx(-750.220,757.480,264.870,91.03,62.78,-91.66))
+# product.add_loc_to_holes_and_fast_lst("pr_01_03", 4.8, 9, posx(-750.220,757.480,264.870,91.03,62.78,-91.66))
 # #4
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_04", 4.8, 9, posx(-715.500,758.340,263.990,90.91,62.48,-92.11))
+# product.add_loc_to_holes_and_fast_lst("pr_01_04", 4.8, 9, posx(-715.500,758.340,263.990,90.91,62.48,-92.11))
 # #5
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_05", 4.8, 9, posx(-714.350,749.520,280.910,90.78,62.1,-91.34))
+# product.add_loc_to_holes_and_fast_lst("pr_01_05", 4.8, 9, posx(-714.350,749.520,280.910,90.78,62.1,-91.34))
 # #6
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_06", 4.8, 9, posx(-744.350,722.340,324.690,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_06", 4.8, 9, posx(-744.350,722.340,324.690,90.58,64.25,-90.75))
 # #7
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_07", 4.8, 9, posx(-744.180,729.660,307.750,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_07", 4.8, 9, posx(-744.180,729.660,307.750,90.58,64.25,-90.75))
 # #8
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_08", 4.8, 9, posx(-709.100,730.420,307.790,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_08", 4.8, 9, posx(-709.100,730.420,307.790,90.58,64.25,-90.75))
 # #9
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_09", 4.8, 9, posx(-709.250,722.090,324.110,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_09", 4.8, 9, posx(-709.250,722.090,324.110,90.58,64.25,-90.75))
 # #10
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_10", 4.8, 9, posx(-709.410,715.630,339.750,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_10", 4.8, 9, posx(-709.410,715.630,339.750,90.58,64.25,-90.75))
 # #11
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_11", 4.8, 9, posx(-674.290,715.300,339.590,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_11", 4.8, 9, posx(-674.290,715.300,339.590,90.58,64.25,-90.75))
 # #12
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_12", 4.8, 9, posx(-674.140,722.880,323.670,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_12", 4.8, 9, posx(-674.140,722.880,323.670,90.58,64.25,-90.75))
 # #13
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_13", 4.8, 9, posx(-673.990,730.470,308.070,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_13", 4.8, 9, posx(-673.990,730.470,308.070,90.58,64.25,-90.75))
 # #14
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_14", 4.8, 9, posx(-639.200,731.460,308.260,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_14", 4.8, 9, posx(-639.200,731.460,308.260,90.58,64.25,-90.75))
 # #15
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_15", 4.8, 9, posx(-639.350,723.830,324.260,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_15", 4.8, 9, posx(-639.350,723.830,324.260,90.58,64.25,-90.75))
 # #16
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_16", 4.8, 9, posx(-639.500,716.450,340.110,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_16", 4.8, 9, posx(-639.500,716.450,340.110,90.58,64.25,-90.75))
 # #17
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_17", 4.8, 9, posx(-604.380,716.590,339.780,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_17", 4.8, 9, posx(-604.380,716.590,339.780,90.58,64.25,-90.75))
 # #18
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_18", 4.8, 9, posx(-604.230,724.330,324.040,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_18", 4.8, 9, posx(-604.230,724.330,324.040,90.58,64.25,-90.75))
 # #19
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_19", 4.8, 9, posx(-604.070,731.030,308.220,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_19", 4.8, 9, posx(-604.070,731.030,308.220,90.58,64.25,-90.75))
 # #20
-# product.add_loc_to_holes_and_tempfs_lst("pr_01_20", 4.8, 9, posx(-569.270,717.230,339.980,90.58,64.25,-90.75))
+# product.add_loc_to_holes_and_fast_lst("pr_01_20", 4.8, 9, posx(-569.270,717.230,339.980,90.58,64.25,-90.75))
  
 ###########################################
-# product.log_holes_and_tempfs_lst()
+# product.log_holes_and_fast_lst()
  
  
 # create a class that contains all actions
