@@ -303,7 +303,7 @@ def tempf_storage_str_to_server(storage_in):
     """
     Function to send the tempf storage location container to the server
  
-    :param storage_in: cl_tl_container with loc: cl_fastener_location and tempf: cl_fastener,
+    :param storage_in: cl_fl_container with loc: cl_fastener_location and tempf: cl_fastener,
     """  
     str = TEMPF_STORAGE_LOC_TAG + _get_hole_location_container_to_server_str(storage_in) + CLOSE_TAG
 
@@ -313,7 +313,7 @@ def permf_storage_str_to_server(storage_in):
     """
     Function to send the permf storage location container to the server
  
-    :param storage_in: cl_tl_container with loc: cl_fastener_location and permf: cl_fastener,
+    :param storage_in: cl_fl_container with loc: cl_fastener_location and permf: cl_fastener,
     """  
     str = PERMF_STORAGE_LOC_TAG + _get_hole_location_container_to_server_str(storage_in) + CLOSE_TAG
 
@@ -323,7 +323,7 @@ def products_str_to_server(product_in):
     """
     Function to send a product container with holes to the server
  
-    :param product_in: cl_tl_container
+    :param product_in: cl_fl_container
     """  
     str = PRODUCT_TAG + _get_hole_location_container_to_server_str(product) + CLOSE_TAG
 
@@ -647,12 +647,12 @@ def _get_drill_task_to_server_str(drill_task_in):
     return ""
 
 # get message string for AssemblyFastener
-def _get_fastener_to_server_str(tl_cont_in: cl_tl_container):
+def _get_fastener_to_server_str(tl_cont_in: cl_fl_container):
     """
     Function to send a fastener to the server
-    It requires a cl_tl_container because also the uid of the location is needed
+    It requires a cl_fl_container because also the uid of the location is needed
     
-    :param fastener_in: cl_tl_container
+    :param fastener_in: cl_fl_container
     :param tempf: bool Whether this is a fastener or a permanent fastener
                        Only difference is the uid of the end effector and the start tag
     """ 
@@ -4512,7 +4512,7 @@ class cl_fastener(cl_fastener_location):
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
         
  
-class cl_tl_container():
+class cl_fl_container():
     """
     Class that contains a location and a fastener object.
  
@@ -4526,12 +4526,12 @@ class cl_tl_container():
         :param loc: cl_fastener_location,
         :param fast: cl_fastener,
         """
-        self.loc = loc
-        self.fast = fast
+        self.loc: cl_fastener_location = loc
+        self.fast: cl_fastener = fast
         
         if self.has_both():
             if not self.is_similar(loc, fast):
-                send_to_PC("cl_tl_container_init___", "fastener {} has been added to location {} \n\
+                send_to_PC("cl_fl_container_init___", "fastener {} has been added to location {} \n\
                            fastener location was not the same as the location\n\
                            fastener location has been made similar.".format(fast.uid(), loc.uid()))
                 self.set
@@ -4891,7 +4891,7 @@ class cl_f_container(cl_uid):
         """
         super().__init__(uid)
         
-        self.holes_and_fast_lst = []  # list with list cl_tl_container
+        self.holes_and_fast_lst = []    # list with list cl_fl_container
         self.bin_contents = []          # list with cl_fastener instances
         self.bin_location = None        # posx
         self.max_obstacle_height = max_obstacle_heigth       # height of the biggest obstacle
@@ -4922,7 +4922,7 @@ class cl_f_container(cl_uid):
                     return True
                 
         # add the location to a new spot in holes_and_fast_lst
-        self.holes_and_fast_lst.append(cl_tl_container(loc = loc))
+        self.holes_and_fast_lst.append(cl_fl_container(loc = loc))
         
         return True
  
@@ -4989,7 +4989,7 @@ class cl_f_container(cl_uid):
                 return True
  
         # add the fast to a new spot in holes_and_fast_lst
-        self.holes_and_fast_lst.append(cl_tl_container(fast = tf))
+        self.holes_and_fast_lst.append(cl_fl_container(fast = tf))
         
         return True
     
@@ -5391,8 +5391,9 @@ class cl_f_container(cl_uid):
         :param grip: float, the grip length code of the fastener
         """
         for i, s in enumerate(self.holes_and_fast_lst):
-            if s.has_fast():
-                if s.has_diam(diam) and s.has_grip(grip):
+            f: cl_fl_container = s
+            if f.has_fast():
+                if f.has_diam(diam) and f.has_grip(grip) and not f.fast.in_bin():
                     return i
                 
         send_to_PC("find_fast_id_of_diam___", "no fastener available with diameter {}.".format(diam)) #add grip to error message
@@ -5418,7 +5419,7 @@ class cl_agent(cl_uid):
     """ 
  
     
-    def __init__(self, uid, tempf_storage, permf_storage, product, pf_ee, tf_ee):
+    def __init__(self, uid: str, tempf_storage: cl_f_container, permf_storage: cl_f_container, product: cl_f_container, pf_ee: cl_perm_fast_ee, tf_ee: cl_temp_fast_ee):
         """
         Function that initializes the cl_agent class.
         
@@ -5431,15 +5432,10 @@ class cl_agent(cl_uid):
         """
         super().__init__(uid)
         
-        self.tempf_storage = cl_f_container()
         self.tempf_storage = tempf_storage
-        self.permf_storage = cl_f_container()
         self.permf_storage = permf_storage
-        self.product = cl_f_container()
         self.product = product 
-        self.pf_ee = cl_perm_fast_ee()
         self.pf_ee = pf_ee
-        self.tf_ee = cl_temp_fast_ee()
         self.tf_ee = tf_ee
         
         self.actions = []    # list of cl_action
@@ -5470,7 +5466,7 @@ class cl_agent(cl_uid):
             elif a.is_install_tempf():
                 succes = self.install_tempf(a.loc_uid(), a.speed())
             elif a.is_remove_tempf():
-                succes = self.remove_fastener(a.loc_uid(), a.speed())
+                succes = self.remove_tempf(a.loc_uid(), a.speed())
             else:
                 send_to_PC("execute___", "{}: unknown ation type: {}".format(a.uid(), a.a_type()))
                 
@@ -5536,58 +5532,63 @@ class cl_agent(cl_uid):
         if prod_lst_id < 0:
             return False
         
+        target_obj: cl_fl_container = self.product.holes_and_fast_lst[prod_lst_id]
+
         # find the diameter that needs to be installed
-        diam = self.product.holes_and_fast_lst[prod_lst_id].loc.diam()
+        diam = target_obj.loc.diam()
         
         # find the grip that needs to be installed
-        grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
+        grip = target_obj.loc.grip_length()
         
-        storage_loc_id = self.tempf_storage.find_fastener_id_of_diam_grip(diam,grip)
-         
+        storage_loc_id = self.permf_storage.find_fastener_id_of_diam_grip(diam, grip)
+
+        source_obj: cl_fl_container = self.permf_storage.holes_and_fast_lst[storage_loc_id]
+
         # get the permf object
-        tempf = self.tempf_storage.holes_and_fast_lst[storage_loc_id].fast
+        permf = source_obj.fast
         
         # we assume that the install position is known for every temporary
         # fastener that is picked up. Therefore we set the install position
         # to be the primary position by parsing it into the corrected position
-        tempf.reset_to_installed_pos()
+        permf.reset_to_installed_pos()
         
         # set the tempf tcp correctly
-        tempf.set_tool_center_point()
+        permf.set_tool_center_point()
+
         #tp_popup("Check fastener")
         # pick up the fastener from the storage
-        if not self._pick_up_tempf(tempf, self._tempf_storage_approach_pos()):
-            #TODO: decide whether to remove the fastener from the 
-            #      possible fasteners to be picked up...
+        if not self._pick_up_fast(permf, self._tempf_storage_approach_pos(), False):
+            # discard the fastener
+            permf.set_as_in_bin()
             
             # return failure; the ee will be above the tempf location 
             return False
         else:    
             # remove the tempf object from the storage location
-            self.tempf_storage.remove_fast_from_location(storage_loc_id)
+            self.permf_storage.remove_fast_from_location(storage_loc_id)
             
             # move to the product apprach position
             movel(self._product_approach_pos(), ref=DR_BASE, r = BLEND_RADIUS_LARGE)
             #tp_popup("Check fastener")
             # set the product location as the tempf target
-            self.product.set_location_as_fast_target(tempf, prod_lst_id)
+            self.product.set_location_as_fast_target(permf, prod_lst_id)
             
             # move to the hole apprach position
-            movel(tempf.tcp_approach_pos(), ref=DR_BASE)
+            movel(permf.tcp_approach_pos(), ref=DR_BASE)
  
             # calculate the corrected position of the fastener 
             # based on all inserted fasteners in the product
             #TODO perform calculation earlier in a seperate stream if this takes a while
-            tempf.calc_and_set_corrected_pos(self._get_all_tempfs_in_product())
+            permf.calc_and_set_corrected_pos(self._get_all_permfs_in_product())
             
             
             # insert the fastener into the product
-            if self._insert_tempf(tempf, self._product_approach_pos()):
+            if self._insert_fast(permf, self._product_approach_pos(), False):
                 # add the fastener to the product
-                if self.product.add_fast_to_location(tempf, prod_lst_id):
-                    reevaluate_deviations(tempf, self._get_all_tempfs_in_product())
+                if self.product.add_fast_to_location(permf, prod_lst_id):
+                    reevaluate_deviations(permf, self._get_all_permfs_in_product())
                     
-                    Z_PREDICTION_LAST_FAST_OK = tempf.is_z_pos_well_predicted
+                    Z_PREDICTION_LAST_FAST_OK = permf.is_z_pos_well_predicted
                     return True
             
             return False
@@ -5644,7 +5645,7 @@ class cl_agent(cl_uid):
         tempf.set_tool_center_point()
         #tp_popup("Check fastener")
         # pick up the fastener from the storage
-        if not self._pick_up_tempf(tempf, self._tempf_storage_approach_pos()):
+        if not self._pick_up_fast(tempf, self._tempf_storage_approach_pos(), True):
             #TODO: decide whether to remove the fastener from the 
             #      possible fasteners to be picked up...
             
@@ -5670,7 +5671,7 @@ class cl_agent(cl_uid):
             
             
             # insert the fastener into the product
-            if self._insert_tempf(tempf, self._product_approach_pos()):
+            if self._insert_fast(tempf, self._product_approach_pos(), True):
                 # add the fastener to the product
                 if self.product.add_fast_to_location(tempf, prod_lst_id):
                     reevaluate_deviations(tempf, self._get_all_tempfs_in_product())
@@ -5681,7 +5682,7 @@ class cl_agent(cl_uid):
             return False
             
     
-    def remove_fastener(self, fastener_uid = "", speed = 100):
+    def remove_tempf(self, fastener_uid = "", speed = 100):
         """
         Function to remove a fastener from the product.
         
@@ -5720,7 +5721,7 @@ class cl_agent(cl_uid):
         tempf.set_tool_center_point()
         
         # pick up the fastener from the product
-        if not self._pick_up_tempf(tempf, self._product_approach_pos()):
+        if not self._pick_up_fast(tempf, self._product_approach_pos(), True):
             #TODO: add to some kind of error list when failed to remove
             self.tf_ee.reset_cobot_output_pins_incl_air()
             # return failure; the ee will be above the tempf location 
@@ -5744,7 +5745,7 @@ class cl_agent(cl_uid):
             tempf.reset_to_installed_pos()
             
             # insert the fastener into the product
-            if self._insert_tempf(tempf, self._tempf_storage_approach_pos()):
+            if self._insert_fast(tempf, self._tempf_storage_approach_pos(), True):
                 # add the fastener to the product
                 return self.tempf_storage.add_fast_to_location(tempf, storage_loc_id)
             
@@ -5932,30 +5933,32 @@ class cl_agent(cl_uid):
         return success
  
     
-    def _pick_up_tempf(self, tempf, approach_pos):
+    def _pick_up_fast(self, fast: cl_fastener, approach_pos, is_tempf: bool):
         """
         Function that picks up a fastener.
-        The pick-up location can be found in the tempf object
+        The pick-up location can be found in the fast object
         
-        :param tempf: cl_fastener, the fastener object with 
+        :param fast: cl_fastener, the fastener object with 
                                         information on where to install it
         :param approach_pos: pos, the position to go to before approaching 
                                   the pick-up location
+        :param is_tempf: bool, Whteher we are dealing with a temporary fastener
+                               or a permanent fastener
             
         :return: bool, returns True if successful
         """
-        self._approach_tempf(tempf, approach_pos)
+        self._approach_fast(fast, approach_pos)
         is_untightened = False
                         
-        if self._engage_tempf(tempf, PICK_UP_FORCE, PICK_UP_ENGAGEMENT_COMPLIANCE, PICK_UP_ENGAGEMENT_SPEED, True):
+        if self._engage_fast(fast, PICK_UP_FORCE, PICK_UP_ENGAGEMENT_COMPLIANCE, PICK_UP_ENGAGEMENT_SPEED, True, is_tempf):
             
             # wait to properly settle
             wait(0.1)
      
             # get and log the pick-up location to enable fine tuning of the storage location 
-            tempf.set_install_pos_from_tcp_position()
+            fast.set_install_pos_from_tcp_position()
             
-            # let the ee know there is a tempf in its beak
+            # let the ee know there is a fast in its beak
             self.tf_ee.temp_fast_in_end_effector = True
             
             # clamp and tighten the fastener
@@ -5967,7 +5970,7 @@ class cl_agent(cl_uid):
             
             release_force()
             release_compliance_ctrl()
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+            movel(posx(0, 0, -(fast.shaft_height() + fast.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
  
             self.tf_ee.stop_ejection()   
             
@@ -5977,84 +5980,84 @@ class cl_agent(cl_uid):
             return False
         
         if is_untightened:
-            #remember where the tempf is.
-            was_in_product = tempf.in_product()
+            #remember where the fast is.
+            was_in_product = fast.in_product()
             
-            # let the tempf know its new location, will also change the TCP
-            tempf.set_as_in_ee()
+            # let the fast know its new location, will also change the TCP
+            fast.set_as_in_ee()
         else:
             self.tf_ee.reset_cobot_output_pins()
             
             release_force()
             release_compliance_ctrl()
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+            movel(posx(0, 0, -(fast.shaft_height() + fast.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
             
             return False
             
-        # check if the tempf is really in the ee
-        if CODE_IS_USED_FOR_PERMANENT_FASTENING == False:
+        # check if the fast is really in the ee
+        if is_tempf:
             if is_untightened:            
-                in_ee = retract_and_check_tempf_in_ee(tempf, self.tf_ee)
+                in_ee = retract_and_check_tempf_in_ee(fast, self.tf_ee)
                 if not in_ee:
                     if was_in_product:
-                        tempf.set_as_in_product()
+                        fast.set_as_in_product()
                     else:
-                        tempf.set_as_in_storage()
+                        fast.set_as_in_storage()
+        else:
+            #TODO check whether the fastener is in
+            in_ee = True  
             
         # change to move speed
         change_operation_speed(MOVE_SPEED)
         
         # move away from temps
-        movel(posx(0, 0, -tempf.shaft_height() - SAFE_Z_GAP, 0, 0, 0), ref=DR_TOOL, r = BLEND_RADIUS_SMALL)
+        movel(posx(0, 0, -fast.shaft_height() - SAFE_Z_GAP, 0, 0, 0), ref=DR_TOOL, r = BLEND_RADIUS_SMALL)
         
         # move to the approach position
         movel(approach_pos, ref=DR_BASE)
         
-        # Hoe checken? 
-        if CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
-            in_ee = True
-       
         # return the success
         return in_ee
  
     
-    def _insert_tempf(self, tempf, approach_pos):
+    def _insert_fast(self, fast: cl_fastener, approach_pos, is_tempf: bool):
         """
         Function that inserts and tightens a fastener.
-        The function assumes that the target location is in the tempf object
+        The function assumes that the target location is in the fast object
         
-        :param tempf: cl_fastener, the fastener object with 
+        :param fast: cl_fastener, the fastener object with 
                                         information on where to install it
         :param approach_pos: pos, the position to go to before approaching 
                                   the insert location
+        :param is_tempf: bool, Whteher we are dealing with a temporary fastener
+                               or a permanent fastener
             
         :return: bool, returns True if successful
         """
         
-        self._approach_tempf(tempf, approach_pos)
+        self._approach_fast(fast, approach_pos)
         
         #ATTENTION deactivated for now
         #TODO activate later again
-        #if not tempf.is_z_pos_well_predicted() or tempf.is_z_dir_well_predicted():
-        #    if not probe_hole_axis_syst(tempf):
+        #if not fast.is_z_pos_well_predicted() or fast.is_z_dir_well_predicted():
+        #    if not probe_hole_axis_syst(fast):
         #        return False
         
-        #if not tempf.is_xy_pos_well_predicted():
-        #    if not move_spiral_into_hole(tempf, rev=1, radius=TEMPF_DEFAULT_POSITIONAL_DEVIATION, r_time=1, attempt_number=1):
+        #if not fast.is_xy_pos_well_predicted():
+        #    if not move_spiral_into_hole(fast, rev=1, radius=TEMPF_DEFAULT_POSITIONAL_DEVIATION, r_time=1, attempt_number=1):
         #        return False
         #else:
-        if not move_into_hole(tempf, self.tf_ee):
-            movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+        if not move_into_hole(fast, self.tf_ee):
+            movel(posx(0, 0, -(fast.shaft_height() + fast.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
             
             self.tf_ee.stop_clamping()
             
             return False
         
-        if CODE_IS_USED_FOR_PERMANENT_FASTENING == False:
+        if is_tempf:
             is_tightened = self.tf_ee.tighten_temp(TIGHTEN_PROGRAM)
-        
-        elif CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
-            is_tightened = self.tf_ee.start_trigger()
+        else:
+            is_tightened = self.pf_ee.start_trigger()
             
         # try again if not tightened
         if not is_tightened:
@@ -6064,25 +6067,27 @@ class cl_agent(cl_uid):
         if is_tightened:       
             
             # get and log the place location to enable fine tuning of the storage location 
-            tempf.set_install_pos_from_tcp_position()
+            fast.set_install_pos_from_tcp_position()
             
-            # let the tempf and the ee know everything is in position, will also change the TCP
-            tempf.set_as_in_product()
+            # let the fast and the ee know everything is in position, will also change the TCP
+            fast.set_as_in_product()
             self.tf_ee.temp_fast_in_end_effector = False
         else:
-            send_to_PC("insert_tempf___", "fastener with uid {} not tightened.".format(tempf.uid()))
+            send_to_PC("insert_fast___", "fastener with uid {} not tightened.".format(fast.uid()))
         
-        self.tf_ee.stop_clamping()
+        if is_tempf:
+            self.tf_ee.stop_clamping()
+
+            # start ejecting to help disengage the fastener
+            self.tf_ee.start_ejection()
         
         # retract away from the fastener location in any case
         change_operation_speed(HOLE_RETRACTION_SPEED)
         
-        # start ejecting to help disengage the fastener
-        self.tf_ee.start_ejection()
-        
-        movel(posx(0, 0, -(tempf.shaft_height() + tempf.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
+        movel(posx(0, 0, -(fast.shaft_height() + fast.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
  
-        self.tf_ee.stop_ejection()        
+        if is_tempf:
+            self.tf_ee.stop_ejection()        
  
         # change to move speed
         change_operation_speed(MOVE_SPEED)
@@ -6094,12 +6099,12 @@ class cl_agent(cl_uid):
         return is_tightened
     
     
-    def _approach_tempf(self, tempf, approach_pos):
+    def _approach_fast(self, fast: cl_fastener, approach_pos):
         """
         Function that approaches a fastener.
-        The function uses the location in the tempf object
+        The function uses the location in the fast object
         
-        :param tempf: cl_fastener, the fastener object with 
+        :param fast: cl_fastener, the fastener object with 
                                         information on where to approach it
         :param approach_pos: pos, the position to go to before approaching 
                                   the fastener itself
@@ -6111,7 +6116,7 @@ class cl_agent(cl_uid):
         set_ref_coord(DR_BASE)
         
         # get the pickup location
-        pick_up_tcp_approach_pos = tempf.tcp_approach_pos()
+        pick_up_tcp_approach_pos = fast.tcp_approach_pos()
         
         change_operation_speed(MOVE_SPEED)
         
@@ -6119,31 +6124,33 @@ class cl_agent(cl_uid):
         dist_to_pick_up = point_distance(current_pos, pick_up_tcp_approach_pos)
         dist_to_approach_pos = point_distance(current_pos, approach_pos)
         
-        #send_to_PC("approach_tempf___", pos_string(approach_pos))
+        #send_to_PC("approach_fast___", pos_string(approach_pos))
         
         # move to the approach position if that is closer
         if dist_to_approach_pos < dist_to_pick_up:
             movel(approach_pos, ref=DR_BASE)
         else:
             # move to a location on the xy plane of the approach_pos
-            # send_to_PC("approach_tempf calculated position ", pos_string(project_pt_to_xy_pln(current_pos, approach_pos)))
+            # send_to_PC("approach_fast calculated position ", pos_string(project_pt_to_xy_pln(current_pos, approach_pos)))
             movel(project_pt_to_xy_pln(current_pos, pick_up_tcp_approach_pos), ref=DR_BASE)
  
         # next move to the pick-up location
         movel(pick_up_tcp_approach_pos, ref=DR_BASE)
         
     
-    def _engage_tempf(self, tempf, force, comp, speed, burst):
+    def _engage_fast(self, fast: cl_fastener, force, comp, speed, burst, is_tempf: bool):
         """
         Function that engages an installed fastener or hole. 
-        The function uses the location in the tempf object.
+        The function uses the location in the fast object.
         
-        :param tempf: cl_fastener, the fastener object with 
+        :param fast: cl_fastener, the fastener object with 
                             information on where to engage it
         :param force: float, the force applied to the fastener
         :param comp: list[float, float, float, float, float, float], the definition of the compliance
         :param speed: float, the speed as percentage
         :param burst: bool, whether an engagement burst must be done
+        :param is_tempf: bool, Whteher we are dealing with a temporary fastener
+                               or a permanent fastener
         
         :return: bool, returns True if successful
         """
@@ -6153,7 +6160,7 @@ class cl_agent(cl_uid):
         
         task_compliance_ctrl([2500,2500,25000,200,200,200])
         change_operation_speed(30)
-        movel(posx(0,0,GLOBAL_CLEARANCE_DURING_MOVEMENTS+SAFE_Z_GAP+SAFE_Z_GAP-tempf.shaft_height()+2,0,0,0),ref=DR_TOOL)       
+        movel(posx(0,0,GLOBAL_CLEARANCE_DURING_MOVEMENTS+SAFE_Z_GAP+SAFE_Z_GAP-fast.shaft_height()+2,0,0,0),ref=DR_TOOL)       
         
         wait(0.5)
         # Get a reference force because a force can already be present (example: hanging cables)
@@ -6163,7 +6170,7 @@ class cl_agent(cl_uid):
         # Set DR_TOOL as ref coordinate to ensure that the desired forces are in the too axis system
         set_ref_coord(DR_TOOL)
            
-#Zorgt ervoor dat tijdens de eerste +- seconde van force control er minder afwijking is
+        # The following prevents drifting of the Cobot position 
         task_compliance_ctrl([20000,20000,20000,400,400,400])
         
         set_desired_force([0, 0, 11, 0, 0, 0], [0, 0, 1, 0, 0, 0]) 
@@ -6195,7 +6202,7 @@ class cl_agent(cl_uid):
                 reached_force = abs(f_z - f_z0) > 0.9 * force
                 if reached_force:
                     break
-            r_i = tempf.get_install_ratio()
+            r_i = fast.get_install_ratio()
             reached_pos = r_i < reqd_ratio
             
             reached_max_time = (time.time() - t0) > 8
@@ -6205,17 +6212,18 @@ class cl_agent(cl_uid):
         if burst and not reached_pos:
             # burst usually when temp must be picked up,
             # so the burst must be in untightening direction
-            self.tf_ee.engagement_burst()
+            if is_tempf:
+                self.tf_ee.engagement_burst()
             
-            # wait to see if it reached position now
-            wait(1)
+                # wait to see if it reached position now
+                wait(1)
         
             # get the position progress
-            r_i = tempf.get_install_ratio()
+            r_i = fast.get_install_ratio()
             reached_pos = r_i < reqd_ratio
             
         if reached_force and not reached_pos:
-            send_to_PC("_engage_tempf___", "starting periodic move to get from {} to {}".format(r_i, reqd_ratio))
+            send_to_PC("_engage_fast___", "starting periodic move to get from {} to {}".format(r_i, reqd_ratio))
             #start a spiral move to see if it will slide over the temp
             #   Periodic move to wiggle the fastener in
             
@@ -6225,19 +6233,20 @@ class cl_agent(cl_uid):
             if burst and not reached_pos:
                 # burst usually when temp must be picked up,
                 # so the burst must be in untightening direction
-                self.tf_ee.engagement_burst()
+                if is_tempf:
+                    self.tf_ee.engagement_burst()
           
             # The while loop below senses whether the end effector slips onto the fastener
             while check_motion() != 0 and not reached_pos:
                 
-                r_i = tempf.get_install_ratio()
+                r_i = fast.get_install_ratio()
                 reached_pos = r_i < reqd_ratio
           
             # stop the spiral motion
             stop(DR_SSTOP)
         
         if not reached_force and reached_pos:
-            send_to_PC("_engage_tempf___", "waiting for force to increase from {}N to {}N".format(f_z, force))
+            send_to_PC("_engage_fast___", "waiting for force to increase from {}N to {}N".format(f_z, force))
             t0 = time.time()
  
             while not reached_max_time:
@@ -6249,48 +6258,28 @@ class cl_agent(cl_uid):
                     break
         #tp_popup("reached_force={0},reached_pos={1}".format(reached_force,reached_pos))
         if reached_force and reached_pos:
-            send_to_PC("engage_tempf___", "did reach force and position when engaging fastener {}\n".format(tempf.uid()) +
+            send_to_PC("engage_fast___", "did reach force and position when engaging fastener {}\n".format(fast.uid()) +
                        "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
                        "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
             return True    
         
         if not reached_force and reached_pos:
             return True
-            #send_to_PC("engage_tempf___", "did not reach force but reached position when engaging fastener {}\n".format(tempf.uid()) +
+            #send_to_PC("engage_fast___", "did not reach force but reached position when engaging fastener {}\n".format(fast.uid()) +
                       # "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
                       # "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
         
         if reached_force and not reached_pos:
-            send_to_PC("engage_tempf___", "reached force but not reached position when engaging fastener {}\n".format(tempf.uid()) +
+            send_to_PC("engage_fast___", "reached force but not reached position when engaging fastener {}\n".format(fast.uid()) +
                        "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
                        "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
  
         if not reached_force and not reached_pos:
-            send_to_PC("engage_tempf___", "did not reach force or position when engaging fastener {}\n".format(tempf.uid()) +
+            send_to_PC("engage_fast___", "did not reach force or position when engaging fastener {}\n".format(fast.uid()) +
                        "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
                        "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
         
-        return False
-            
-    
-    def _get_fastener(self, uid = None, diam = None):
-        """
-        Function that gets a fastener object either by uid or diameter.
-        It will only select from the storage location in case the diameter is given.
-        
-        :param uid: str, the uid of the fastener object to find
-            default: None, which will not use the uid to find the fastener
-        :param diam: float, the diameter of any fastener 
-                            object to find in the storage location
-            default: None, which will not use the diameter to find a fastener
-            
-        :return: cl_fastener, the fastener object with the uid
-        """
-        if uid is not None:
-            return self._get_fastener_by_uid(uid)
-        if diam is not None:
-            return self.tempf_storage.find_fast_id_of_diam(diam)
-        return 0       
+        return False      
  
     
     def _get_all_locs(self):
@@ -6300,8 +6289,9 @@ class cl_agent(cl_uid):
         :return: list[cl_fastener_location]
         """
         lst1 = [l.loc for l in self.tempf_storage.holes_and_fast_lst if l.loc is not None]
-        lst2 = [l.loc for l in self.product.holes_and_fast_lst if l.loc is not None]
-        return lst1 + lst2
+        lst2 = [l.loc for l in self.permf_storage.holes_and_fast_lst if l.loc is not None]
+        lst3 = [l.loc for l in self.product.holes_and_fast_lst if l.loc is not None]
+        return lst1 + lst2 + lst3
  
     
     def _get_location_by_uid(self, uid):
@@ -6314,6 +6304,7 @@ class cl_agent(cl_uid):
         """       
         return self._get_from_lst_by_uid(self._get_all_locs(), uid, "location")
     
+
     def _get_all_permfs_in_storage(self):
         """
         Function that returns a list with all fasteners in the storage
@@ -6356,7 +6347,7 @@ class cl_agent(cl_uid):
         """
         Function that returns a list with all fasteners in the product and storage
             
-        :return: listcl_fastener,
+        :return: list cl_fastener,
         """
         return self._get_all_tempfs_in_storage + self._get_all_tempfs_in_product
             
@@ -7092,7 +7083,7 @@ agent._add_install_permf_action("A01", "pr_01_01")
 # agent._add_install_permf_action("A19", "pr_01_19")
 # agent._add_install_permf_action("A20", "pr_01_20")
  
-agent.execute()
+agent.execute_all()
  
 send_to_PC("end program")
 
