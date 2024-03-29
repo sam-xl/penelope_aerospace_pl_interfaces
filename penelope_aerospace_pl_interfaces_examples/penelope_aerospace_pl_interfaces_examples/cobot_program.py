@@ -375,31 +375,31 @@ def drill_tasks_str_to_server(drill_tasks_in):
 
     return str 
 
-def fasteners_str_to_server(fasteners_in):  
+def fasteners_str_to_server(fl_container_lst_in):  
     """
     Function to send list of available fasteners to the server
  
-    :param fasteners_in: list of cl_fastener
+    :param fasteners_in: list of cl_fl_container
     """ 
     str = FASTENERS_TAG
 
-    for fastener in fasteners_in:
-        str = str + _get_fastener_to_server_str(fastener)
+    for fl_container in fl_container_lst_in:
+        str = str + _get_fastener_to_server_str(fl_container.fast, fl_container.loc.uid)
 
     str = str + CLOSE_TAG
 
     return str 
 
-def tempfs_str_to_server(tempfs_in): 
+def tempfs_str_to_server(fl_container_lst_in): 
     """
     Function to send list of available fasteners to the server
  
-    :param tempfs_in: list of cl_fastener
+    :param tempfs_in: list of cl_fl_container
     """ 
     str = TEMPFS_TAG
 
-    for tempf in tempfs_in:
-        str = str + _get_fastener_to_server_str(tempf)
+    for fl_container in fl_container_lst_in:
+        str = str + _get_fastener_to_server_str(fl_container.fast, fl_container.loc.uid)
 
     str = str + CLOSE_TAG
 
@@ -647,17 +647,13 @@ def _get_drill_task_to_server_str(drill_task_in):
     return ""
 
 # get message string for AssemblyFastener
-def _get_fastener_to_server_str(tl_cont_in: cl_fl_container):
+def _get_fastener_to_server_str(fastener_in: cl_fastener, loc_uid_in):
     """
     Function to send a fastener to the server
-    It requires a cl_fl_container because also the uid of the location is needed
     
-    :param fastener_in: cl_fl_container
-    :param tempf: bool Whether this is a fastener or a permanent fastener
-                       Only difference is the uid of the end effector and the start tag
-    """ 
-    fastener_in = tl_cont_in.fast
-    location_in = tl_cont_in.loc
+    :param fastener_in: cl_fastener
+    :param loc_uid_in:  str, the uid of the location where the object is
+    """
     
     is_tempf = fastener_in.is_tempf()
 
@@ -670,7 +666,8 @@ def _get_fastener_to_server_str(tl_cont_in: cl_fl_container):
     str = str + UID_TAG + fastener_in.uid() + CLOSE_TAG
 
     #string loc_uid                          # uid of the location of the fastener in one of the containers
-    str = str + LOC_UID_TAG + location_in.uid() + CLOSE_TAG
+    if not loc_uid_in == "":
+        str = str + LOC_UID_TAG + loc_uid_in + CLOSE_TAG
 
     #string ee_uid                           # uid of the end effector needed to manipulate this (temporary) fastener
     if is_tempf:
@@ -2813,7 +2810,7 @@ class cl_temp_fast_ee:
         self.reset_cobot_output_pins_incl_air()
         
         # variable that stores whether a fastener is in the end effector
-        self.temp_fast_in_end_effector = False
+        self.tempf_in_end_effector = False
         
  
     def reset_cobot_output_pins(self):
@@ -3109,7 +3106,7 @@ class cl_temp_fast_ee:
         #start new cycle
         self.start_new_cycle()
         
-        if not self.temp_fast_in_end_effector:
+        if not self.tempf_in_end_effector:
             send_to_PC("tighten_temp___", "Unsuccesful fastener tightening; There was no fastener in the end effector to install.")
             return False
         
@@ -3215,7 +3212,7 @@ class cl_temp_fast_ee:
         #Shift the EE if needed
         #adjust_xy_location()
         
-        if not self.temp_fast_in_end_effector:
+        if not self.tempf_in_end_effector:
             send_to_PC("untighten_temp___", "Unsuccesful fastener untightening; There was no fastener in the end effector to remove.")
             return False
         
@@ -3295,7 +3292,7 @@ class cl_temp_fast_ee:
         self.stop_ejection()
         
         # store that the end effector does not have a fastener anymore
-        self.temp_fast_in_end_effector = False
+        self.tempf_in_end_effector = False
         
         return True
  
@@ -3330,7 +3327,7 @@ class cl_perm_fast_ee:
         self.reset_cobot_tool_output_pins()
         
         # variable that stores whether a permanent fastener is in the end effector
-        self.perm_fast_in_end_effector = False
+        self.permf_in_end_effector = False
         
  
     def reset_cobot_tool_output_pins(self):
@@ -3360,28 +3357,7 @@ class cl_perm_fast_ee:
         release_compliance_ctrl()
         
         return True
-        
-    #Methods to skip through pieces of code for temporary fastening    
-    def untighten_temp(self,x):
-        return True
-        
-    def start_ejection(self):
-        pass
-        
-    def stop_ejection(self):
-        pass
-        
-    def reset_cobot_output_pins(self):
-        pass
-        
-    def engagement_burst(self):
-        return True
-        
-    def stop_clamping(self):
-        return True
-        
-    def tighten_temp(x):
-        return True
+
         
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -3653,7 +3629,7 @@ class cl_fastener(cl_fastener_location):
     
     def __init__(self, uid, diam, stack_thickness, fast_nom_pos, 
                  fast_corrected_pos=None, fast_install_pos=None, 
-                 in_storage = False, in_ee = False, in_product=False, in_bin=False, tempf = True):
+                 in_storage = False, in_ee = False, in_product=False, in_bin=False, is_tempf = True):
         """
         If corrected_pos or install_pos are specified the init assumes 
         that the installation has already taken place and will calculate the
@@ -3682,7 +3658,7 @@ class cl_fastener(cl_fastener_location):
         self.__installed_pos = None
         self.__tcp_target_pos = None
         self.__tcp_approach_pos = None
-        self.__tempf = tempf
+        self.__is_tempf = is_tempf
         
         self.__distance_to_fastener = 999999.0
         self.__vector_to_fastener = [0, 0, 0]
@@ -3716,7 +3692,7 @@ class cl_fastener(cl_fastener_location):
         
         #Perm fastening
         #For diameter code 6:
-        if abs(self.diam() - 4.80) < 0.1 and CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
+        if abs(self.diam() - 4.80) < 0.1 and not self.__is_tempf:
             if abs(self.grip_length() - 9) < 0.1: #Grip code 9
                 self.__shaft_height = DIAM_6_AND_GRIP_9_SHAFT_HEIGHT
                 self.__min_stack = DIAM_6_AND_GRIP_9_MIN_STACK
@@ -3993,6 +3969,7 @@ class cl_fastener(cl_fastener_location):
     def set_as_in_storage(self):
         """
         sets that the fastener is installed in the storage.
+        Will also report the change to the connected system.
         """
         self.__in_storage = True
         # it is not in any of the other locations
@@ -4001,6 +3978,7 @@ class cl_fastener(cl_fastener_location):
         self.__in_bin = False
         
         self.set_tool_center_point()
+        self.report_to_system()
         
  
     def in_ee(self):
@@ -4013,6 +3991,7 @@ class cl_fastener(cl_fastener_location):
     def set_as_in_ee(self):
         """
         sets that the fastener is in the end effector.
+        Will also report the change to the connected system.
         """
         self.__in_ee = True 
         # it is not in any of the other locations
@@ -4021,8 +4000,9 @@ class cl_fastener(cl_fastener_location):
         self.__in_bin = False
         
         self.set_tool_center_point()
-        
- 
+        self.report_to_system()
+    
+    
     def in_product(self):
         """
         returns whether the fastener is installed in the product.
@@ -4033,6 +4013,7 @@ class cl_fastener(cl_fastener_location):
     def set_as_in_product(self):
         """
         sets that the fastener is installed in the product.
+        Will also report the change to the connected system.
         """
         self.__in_product = True
         # it is not in any of the other locations
@@ -4041,7 +4022,8 @@ class cl_fastener(cl_fastener_location):
         self.__in_bin = False
         
         self.set_tool_center_point()
-        
+        self.report_to_system()
+
  
     def in_bin(self):
         """returns whether the fastener has been ejected into the bin."""
@@ -4051,6 +4033,7 @@ class cl_fastener(cl_fastener_location):
     def set_as_in_bin(self):
         """
         sets that the fastener is ejected into the bin.
+        Will also report the change to the connected system.
         """
         self.__in_bin = True
         # it is not in any of the other locations
@@ -4059,30 +4042,41 @@ class cl_fastener(cl_fastener_location):
         self.__in_product = False
         
         self.set_tool_center_point()
+        self.report_to_system()
  
+
+    def report_to_system(self):
+        """let the connected systen know the fastener status."""
+        if self.__is_tempf:
+            str_out = TEMPFS_TAG + _get_fastener_to_server_str(self) + CLOSE_TAG
+        else:
+            str_out = FASTENERS_TAG + _get_fastener_to_server_str(self) + CLOSE_TAG
+
+        send_to_PC(str_out)
+
 
     def is_tempf(self):
         """returns whether the fastener is a temporary fastener."""
-        return self.__tempf
+        return self.__is_tempf
 
 
     def is_permf(self):
         """returns whether the fastener is a permanent fastener."""
-        return not self.__tempf
+        return not self.__is_tempf
     
 
     def set_as_tempf(self):
         """
         sets the fastener to be a tepmporary fastener.
         """
-        self.__tempf = True
+        self.__is_tempf = True
 
      
     def set_as_permf(self):
         """
         sets the fastener to be a permanent fastener.
         """
-        self.__tempf = False
+        self.__is_tempf = False
 
  
     def reset_to_nom_pos_only(self):
@@ -4163,7 +4157,7 @@ class cl_fastener(cl_fastener_location):
         self.calc_tcp_target_pos_from_corrected_hole_pos()
         self.calc_tcp_approach_pos_from_corrected_hole_pos()
         
-        if CODE_IS_USED_FOR_PERMANENT_FASTENING == False:
+        if self.__is_tempf:
             if abs(self.diam() - 5.055) < 0.1:
                 if self.__in_ee:
                     send_to_PC("set_tool_center_point___", "setting TCP to " + TCP_NAME_DIAM_5_TIP + " for fastener " + self.uid() + "\nForce and compliance are turned off to enable this.")
@@ -4173,8 +4167,7 @@ class cl_fastener(cl_fastener_location):
                     send_to_PC("set_tool_center_point___", "setting TCP to " + TCP_NAME_LISI_TIP_NO_TEMPF + " for fastener " + self.uid() + "\nForce and compliance are turned off to enable this.")
                     set_tcp(TCP_NAME_LISI_TIP_NO_TEMPF)
                     return True
-        
-        elif CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
+        else:
             if abs(self.diam() - 4.80) < 0.1:
                 if abs(self.grip_length() - 9) < 0.1: #For dia code 6 and grip code 9
                     if self.__in_ee:
@@ -4891,10 +4884,10 @@ class cl_f_container(cl_uid):
         """
         super().__init__(uid)
         
-        self.holes_and_fast_lst = []    # list with list cl_fl_container
-        self.bin_contents = []          # list with cl_fastener instances
-        self.bin_location = None        # posx
-        self.max_obstacle_height = max_obstacle_heigth       # height of the biggest obstacle
+        self.holes_and_fast_lst: list[cl_fl_container] = []    # list with list cl_fl_container
+        self.bin_contents: list[cl_fastener] = []              # list with cl_fastener instances
+        self.bin_location = None                               # posx
+        self.max_obstacle_height = max_obstacle_heigth         # height of the biggest obstacle
         #TODO make sure the program uses this max_obstacle_height
         self.approach_pos_uid = approach_pos_uid          # the uid of the approach position
         #TODO make sure the approach picks this approach position    
@@ -5184,7 +5177,7 @@ class cl_f_container(cl_uid):
             return False
  
     
-    def set_location_as_fast_target(self, fast, loc_lst_id):
+    def set_location_as_fast_target(self, fast: cl_fastener, loc_lst_id: int):
         """
         Function to set the storage location as the target of a
         fastener object.
@@ -5195,7 +5188,7 @@ class cl_f_container(cl_uid):
         :return: int, loc_lst_id if successful (also passed checks), -1 if unsuccessful
         """
         if self.check_lst_lenght(loc_lst_id):
-            tl = self.holes_and_fast_lst[loc_lst_id]
+            tl: cl_fl_container = self.holes_and_fast_lst[loc_lst_id]
             if tl.has_no_fast():
                 if tl.is_same_diam(fast = fast) and tl.is_loc_within_fast_stack_limits(fast = fast):
                     fast.set_nom_pos(self.holes_and_fast_lst[loc_lst_id].loc.nom_pos())
@@ -5205,7 +5198,7 @@ class cl_f_container(cl_uid):
         return -1
         
     
-    def set_bin_location_as_fast_target(self, fast):
+    def set_bin_location_as_fast_target(self, fast: cl_fastener):
         """
         Function to set the bin location as the target of a fastener object. 
         Can only be done when the container is a storage location.
@@ -5292,7 +5285,7 @@ class cl_f_container(cl_uid):
         return -1
     
  
-    def find_empty_spot_and_set_as_target(self, fast):
+    def find_empty_spot_and_set_as_target(self, fast: cl_fastener):
         """
         Function to find the ID of an empty spot with a certain diameter
         and set the location as target of the fastener
@@ -5622,17 +5615,8 @@ class cl_agent(cl_uid):
         # find the grip that needs to be installed
         grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
         
-        if CODE_IS_USED_FOR_PERMANENT_FASTENING == False:
-            # find the spot in the storage location where a fastener resides
-            storage_loc_id = self.tempf_storage.find_fast_id_of_diam(diam)
+        storage_loc_id = self.tempf_storage.find_fast_id_of_diam(diam)
         
-        elif CODE_IS_USED_FOR_PERMANENT_FASTENING == True:
-            #finds the correct fastener in storage
-            storage_loc_id = self.tempf_storage.find_fastener_id_of_diam_grip(diam,grip)
-       
-        else:
-            send_to_PC("Error, CODE_IS_USED_FOR_PERMANENT_FASTENING is not True or False")
-            return False   
         # get the tempf object
         tempf = self.tempf_storage.holes_and_fast_lst[storage_loc_id].fast
         
@@ -5646,8 +5630,8 @@ class cl_agent(cl_uid):
         #tp_popup("Check fastener")
         # pick up the fastener from the storage
         if not self._pick_up_fast(tempf, self._tempf_storage_approach_pos(), True):
-            #TODO: decide whether to remove the fastener from the 
-            #      possible fasteners to be picked up...
+            # discard the fastener
+            tempf.set_as_in_bin()
             
             # return failure; the ee will be above the tempf location 
             return False
@@ -5959,20 +5943,27 @@ class cl_agent(cl_uid):
             fast.set_install_pos_from_tcp_position()
             
             # let the ee know there is a fast in its beak
-            self.tf_ee.temp_fast_in_end_effector = True
-            
-            # clamp and tighten the fastener
-            is_untightened = self.tf_ee.untighten_temp(UNTIGHTEN_PROGRAM)
-            # only move away from the pickup position if properly untightened
+            if is_tempf:
+                self.tf_ee.tempf_in_end_effector = True
+
+                # clamp and tighten the fastener
+                is_untightened = self.tf_ee.untighten_temp(UNTIGHTEN_PROGRAM)
+                # only move away from the pickup position if properly untightened
+            else:
+                self.pf_ee.permf_in_end_effector = True
+                is_untightened = True # permf never is fixed
+                     
         else:
             # start ejecting to help disengage the fastener
-            self.tf_ee.start_ejection()
+            if is_tempf:
+                self.tf_ee.start_ejection()
             
             release_force()
             release_compliance_ctrl()
             movel(posx(0, 0, -(fast.shaft_height() + fast.tcp_tip_distance() + SAFE_Z_GAP + SAFE_Z_GAP), 0, 0, 0), ref=DR_TOOL)
  
-            self.tf_ee.stop_ejection()   
+            if is_tempf:
+                self.tf_ee.stop_ejection()   
             
             # move to the approach position
             movel(approach_pos, ref=DR_BASE)
@@ -5980,7 +5971,7 @@ class cl_agent(cl_uid):
             return False
         
         if is_untightened:
-            #remember where the fast is.
+            # remember where the fast is.
             was_in_product = fast.in_product()
             
             # let the fast know its new location, will also change the TCP
@@ -6071,7 +6062,7 @@ class cl_agent(cl_uid):
             
             # let the fast and the ee know everything is in position, will also change the TCP
             fast.set_as_in_product()
-            self.tf_ee.temp_fast_in_end_effector = False
+            self.tf_ee.tempf_in_end_effector = False
         else:
             send_to_PC("insert_fast___", "fastener with uid {} not tightened.".format(fast.uid()))
         
@@ -6257,28 +6248,32 @@ class cl_agent(cl_uid):
                 if reached_force and reached_pos:
                     break
         #tp_popup("reached_force={0},reached_pos={1}".format(reached_force,reached_pos))
-        if reached_force and reached_pos:
-            send_to_PC("engage_fast___", "did reach force and position when engaging fastener {}\n".format(fast.uid()) +
-                       "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
-                       "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
+        if reached_pos:
+            if reached_force:
+                send_to_PC("engage_fast___", "did reach force and position when engaging fastener {}\n".format(fast.uid()) +
+                           "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
+                           "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
+            else:
+                send_to_PC("engage_fast___", "did not reach force but reached position when engaging fastener {}\n".format(fast.uid()) +
+                           "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
+                           "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
+            
+            # let the system know the fastener is in the ee
+            fast.set_as_in_ee()
             return True    
+        else:
+            if reached_force:
+                send_to_PC("engage_fast___", "reached force but not reached position when engaging fastener {}\n".format(fast.uid()) +
+                        "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
+                        "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
+            else:
+                send_to_PC("engage_fast___", "did not reach force or position when engaging fastener {}\n".format(fast.uid()) +
+                        "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
+                        "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
         
-        if not reached_force and reached_pos:
-            return True
-            #send_to_PC("engage_fast___", "did not reach force but reached position when engaging fastener {}\n".format(fast.uid()) +
-                      # "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
-                      # "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
-        
-        if reached_force and not reached_pos:
-            send_to_PC("engage_fast___", "reached force but not reached position when engaging fastener {}\n".format(fast.uid()) +
-                       "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
-                       "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
- 
-        if not reached_force and not reached_pos:
-            send_to_PC("engage_fast___", "did not reach force or position when engaging fastener {}\n".format(fast.uid()) +
-                       "force in tool z-direction is {} and {} at the start.\n".format(f_z, f_z0) +
-                       "install ratio is {}; time is {}.".format(r_i, (time.time() - t0)))
-        
+            # discard the fastener and let the system know the fastener is in the ee
+            fast.set_as_in_bin()
+
         return False      
  
     
