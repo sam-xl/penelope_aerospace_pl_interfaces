@@ -158,7 +158,10 @@ PICK_UP_ENGAGEMENT_COMPLIANCE = [250,250,250,300,300,300] #was 500,500,500,400,4
 PICK_UP_FORCE = 50 # was 40
 INSERTION_FORCE = 40 
 RETRACT_FORCE = 40
- 
+
+# TODO !!!! get proper bin location
+BIN_POSITION = posx(500,0,500,0,0,0)
+
 # Set the force. The force should be in range of 10-20N -
 # small enough not to bend the material but high enough to reach surface in shortest time
 PROBE_COMPLIANCE_FORCE = 15.0
@@ -241,7 +244,6 @@ PRODUCT_TAG = "product" + OPEN_TAG
 LOCATIONS_TAG = "locations" + OPEN_TAG
 LOC_UID_TAG = "loc_uid" + OPEN_TAG
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
-APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
 HOLE_LOCATION_TAG = "hole_location" + OPEN_TAG
 POSE_TAG = "pose" + OPEN_TAG
 POSE_PX_TAG = "pose_p_x" + OPEN_TAG
@@ -454,9 +456,6 @@ def _get_hole_location_container_to_server_str(cont_in):
     # max_obstacle_height
     str = str + MAX_OBST_HEIGHT_TAG + str(cont_in.max_obstacle_height) + CLOSE_TAG
 
-    # approach_pos_uid
-    str = str + APPR_POS_UID_TAG + cont_in.approach_pos_uid + CLOSE_TAG 
-
     return str
 
 
@@ -613,6 +612,13 @@ def _get_action_to_server_str(action_in):
 
     # uint8 speed: the speed as percentage of the maximum speed
     str = str + SPEED_TAG + str(action_in.speed()) + CLOSE_TAG
+
+    # add the uids that are passed before and after the action
+    str = str + PASSING_UIDS_TAG 
+    for passing_wp in action_in.passing_wps:
+        str = str + PASSING_UID_TAG + passing_wp + CLOSE_TAG
+    
+    str = str + CLOSE_TAG
 
     return str + CLOSE_TAG
 
@@ -877,9 +883,8 @@ def handle_container_str(msg_str: str, agent: cl_agent, type: str):
     """
     # create the container object
     uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG)
-    approach_pos_uid = extract_leaf_content(msg_str, APPR_POS_UID_TAG, CLOSE_TAG)
     max_obstacle_heigth = float(extract_leaf_content(msg_str, MAX_OBST_HEIGHT_TAG, CLOSE_TAG))
-    obj = cl_f_container(uid, max_obstacle_heigth, approach_pos_uid)
+    obj = cl_f_container(uid, max_obstacle_heigth)
 
     if type == TEMPF_STORAGE_LOC_TAG:
         agent.tempf_storage = obj
@@ -966,7 +971,7 @@ def handle_action_str(msg_str, agent: cl_agent):
         a_is_cancelled = True
     else:
         raise Exception("Unknown state encountered in handle_action_str in action with uid {}.".format(a_uid))
-        
+    
     a_speed = float(extract_leaf_content(msg_str, SPEED_TAG, CLOSE_TAG))
 
     if a_type == 1: 
@@ -985,6 +990,17 @@ def handle_action_str(msg_str, agent: cl_agent):
     if a_is_waiting:
         action = agent._get_from_lst_by_uid(agent.actions, a_uid, "", False)
         action.set_as_waiting()
+
+    passing_lst: list[str] = []
+    passing_str = _find_substring(msg_str, PASSING_UIDS_TAG)
+    while passing_str is not None:
+        passing_lst.append(extract_leaf_content(passing_str, PASSING_UID_TAG, CLOSE_TAG))
+        
+        # check if there is another string after an ACTION_TAG
+        passing_str = _find_substring(msg_str, PASSING_UIDS_TAG)
+
+    # set the passing waypoints
+    action.passing_wps = passing_lst
 
     return_str = actions_str_to_server(agent.actions)
 
@@ -3348,7 +3364,8 @@ class cl_perm_fast_ee:
         #tp_popup("start complaince control")
         #task_compliance_ctrl([20,20,20,400,400,400])
         
-        #set_tool_digital_output(self.I2_TRIGGER, 1)   
+        set_tool_digital_output(self.I2_TRIGGER, 1)   
+
         wait(1.5) #Checken als trigger aan moet blijven tijdends nagel trekken. Of dat 1x triggeren voldoende is. Moet zoiezo ff wachten totdat nagel getrokken is
        # wait(0.1) #Weet niet zeker als anders het singaal goed door komt
         #set_tool_digital_output(self.I2_TRIGGER, 0)
@@ -4874,13 +4891,12 @@ class cl_f_container(cl_uid):
     This could be either a product or a temproary or permanent fastener storage location.
     """  
     
-    def __init__(self, uid = "", max_obstacle_heigth = 30, approach_pos_uid = ""):
+    def __init__(self, uid = "", max_obstacle_heigth = 30):
         """
         Init function of the fastener container.
         
         :param uid: str, the uid of the fastener container.
         :param max_obstacle_heigth: float, the height of the largest obstacle.
-        :param approach_pos_uid: str, The uid of the approach position cl_waypoint.
         """
         super().__init__(uid)
         
@@ -4888,9 +4904,7 @@ class cl_f_container(cl_uid):
         self.bin_contents: list[cl_fastener] = []              # list with cl_fastener instances
         self.bin_location = None                               # posx
         self.max_obstacle_height = max_obstacle_heigth         # height of the biggest obstacle
-        #TODO make sure the program uses this max_obstacle_height
-        self.approach_pos_uid = approach_pos_uid          # the uid of the approach position
-        #TODO make sure the approach picks this approach position    
+        #TODO make sure the program uses this max_obstacle_height 
 
  
     def add_loc_to_holes_and_fast_lst(self, uid, diam, stack_thickness, nom_pos):
@@ -5397,7 +5411,7 @@ class cl_f_container(cl_uid):
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
    
  
-class cl_agent(cl_uid):
+class cl_agent():
     """
     Class that contains a list of actions that need to be done
     It also contains the functions to execute these actions
@@ -5412,7 +5426,7 @@ class cl_agent(cl_uid):
     """ 
  
     
-    def __init__(self, uid: str, tempf_storage: cl_f_container, permf_storage: cl_f_container, product: cl_f_container, pf_ee: cl_perm_fast_ee, tf_ee: cl_temp_fast_ee):
+    def __init__(self, tempf_storage: cl_f_container, permf_storage: cl_f_container, product: cl_f_container, pf_ee: cl_perm_fast_ee, tf_ee: cl_temp_fast_ee):
         """
         Function that initializes the cl_agent class.
         
@@ -5423,8 +5437,7 @@ class cl_agent(cl_uid):
         :param pf_ee: cl_perm_fast_ee, the active permanent fastener end effector instance
         :param tf_ee: cl_temp_fast_ee, the active fastener end effector instance
         """
-        super().__init__(uid)
-        
+
         self.tempf_storage = tempf_storage
         self.permf_storage = permf_storage
         self.product = product 
@@ -5443,7 +5456,7 @@ class cl_agent(cl_uid):
             
         :return: bool, returns True if successful
         """
-        a = self._get_from_lst_by_uid(self.actions, uid, "", False)
+        a: cl_action = self._get_from_lst_by_uid(self.actions, uid, "", False)
             
         if a.is_cancelled():
             a.set_as_not_cancelled()
@@ -5451,18 +5464,18 @@ class cl_agent(cl_uid):
 
         if not a.is_done(): 
             succes = False
-            
+
             if a.is_move_waypoint():
                 succes = self.move_to_waypoint(a.loc_uid(), a.speed())
             elif a.is_install_permf():
-                succes = self.install_permf(a.loc_uid(), a.speed())
+                succes = self.install_permf(a.loc_uid(), a.passing_wps, a.speed())
             elif a.is_install_tempf():
-                succes = self.install_tempf(a.loc_uid(), a.speed())
+                succes = self.install_tempf(a.loc_uid(), a.passing_wps, a.speed())
             elif a.is_remove_tempf():
-                succes = self.remove_tempf(a.loc_uid(), a.speed())
+                succes = self.remove_tempf(a.loc_uid(), a.passing_wps, a.speed())
             else:
                 send_to_PC("execute___", "{}: unknown ation type: {}".format(a.uid(), a.a_type()))
-                
+
             if succes:
                 a.set_as_done()
 
@@ -5489,8 +5502,8 @@ class cl_agent(cl_uid):
         """
         Function that 
         
-        :param ...: str, ...
-            default: True, which will 
+        :param wait: bool, Whether to continue directly or to wait until move is finished
+            default: True, which will make the program wait untill the move is finished
             
         :return: bool, returns True if successful
         """
@@ -5503,7 +5516,7 @@ class cl_agent(cl_uid):
             
         return 1
  
-    def install_permf(self, target_loc_uid = "", speed = 100):
+    def install_permf(self, target_loc_uid = "", passing_wp = [], speed = 100):
         """
         Function to install a permanent fastener in the product.
         
@@ -5511,12 +5524,13 @@ class cl_agent(cl_uid):
         1) find out what diameter is needed
         2) find a compatible fastener that is available in the storage location
         3) pick up the fastener
-        4) move to the target location in the product
+        4) move to the target location in the product through passing_wp
         5) insert and install the fastener
         6) retract the end effector away from the product
         
         :param target_loc_uid: str, the uid of the target location in the product 
         :param speed: float, the speed as percentage of the maximum speed
+        :param passing_wp: list[str] The waypoints to pass between pick up and install
             
         :return: bool, returns True if successful
         """
@@ -5550,7 +5564,7 @@ class cl_agent(cl_uid):
 
         #tp_popup("Check fastener")
         # pick up the fastener from the storage
-        if not self._pick_up_fast(permf, self._tempf_storage_approach_pos(), False):
+        if not self._pick_up_fast(permf, False):
             # discard the fastener
             permf.set_as_in_bin()
             
@@ -5560,8 +5574,10 @@ class cl_agent(cl_uid):
             # remove the tempf object from the storage location
             self.permf_storage.remove_fast_from_location(storage_loc_id)
             
-            # move to the product apprach position
-            movel(self._product_approach_pos(), ref=DR_BASE, r = BLEND_RADIUS_LARGE)
+            # move to the product
+            for wp in passing_wp:
+                self.move_to_waypoint(wp)
+
             #tp_popup("Check fastener")
             # set the product location as the tempf target
             self.product.set_location_as_fast_target(permf, prod_lst_id)
@@ -5574,9 +5590,8 @@ class cl_agent(cl_uid):
             #TODO perform calculation earlier in a seperate stream if this takes a while
             permf.calc_and_set_corrected_pos(self._get_all_permfs_in_product())
             
-            
             # insert the fastener into the product
-            if self._insert_fast(permf, self._product_approach_pos(), False):
+            if self._insert_fast(permf, False):
                 # add the fastener to the product
                 if self.product.add_fast_to_location(permf, prod_lst_id):
                     reevaluate_deviations(permf, self._get_all_permfs_in_product())
@@ -5587,7 +5602,7 @@ class cl_agent(cl_uid):
             return False
             
         
-    def install_tempf(self, target_loc_uid = "", speed = 100):
+    def install_tempf(self, target_loc_uid = "", passing_wp = [], speed = 100):
         """
         Function to install a fastener in the product.
         
@@ -5595,13 +5610,14 @@ class cl_agent(cl_uid):
         1) find out what diameter is needed
         2) find a compatible fastener that is available in the storage location
         3) pick up the fastener
-        4) move to the target location in the product
+        4) move to the target location in the product through passing_wp
         5) insert the fastener
         6) retract the end effector away from the product
         
         :param target_loc_uid: str, the uid of the target location in the product 
         :param speed: float, the speed as percentage of the maximum speed
-            
+        :param passing_wp: list[str] The waypoints to pass between pick up and install
+                    
         :return: bool, returns True if successful
         """
         prod_lst_id = self.product.get_loc_lst_id_by_uid(target_loc_uid)
@@ -5613,7 +5629,8 @@ class cl_agent(cl_uid):
         diam = self.product.holes_and_fast_lst[prod_lst_id].loc.diam()
         
         # find the grip that needs to be installed
-        grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
+        # current assumption is that tempf is suitable for all grips
+        # grip = self.product.holes_and_fast_lst[prod_lst_id].loc.grip_length()
         
         storage_loc_id = self.tempf_storage.find_fast_id_of_diam(diam)
         
@@ -5629,7 +5646,7 @@ class cl_agent(cl_uid):
         tempf.set_tool_center_point()
         #tp_popup("Check fastener")
         # pick up the fastener from the storage
-        if not self._pick_up_fast(tempf, self._tempf_storage_approach_pos(), True):
+        if not self._pick_up_fast(tempf, True):
             # discard the fastener
             tempf.set_as_in_bin()
             
@@ -5639,8 +5656,10 @@ class cl_agent(cl_uid):
             # remove the tempf object from the storage location
             self.tempf_storage.remove_fast_from_location(storage_loc_id)
             
-            # move to the product apprach position
-            movel(self._product_approach_pos(), ref=DR_BASE, r = BLEND_RADIUS_LARGE)
+            # move to the product
+            for wp in passing_wp:
+                self.move_to_waypoint(wp)
+
             #tp_popup("Check fastener")
             # set the product location as the tempf target
             self.product.set_location_as_fast_target(tempf, prod_lst_id)
@@ -5650,12 +5669,10 @@ class cl_agent(cl_uid):
  
             # calculate the corrected position of the fastener 
             # based on all inserted fasteners in the product
-            #TODO perform calculation earlier in a seperate stream if this takes a while
             tempf.calc_and_set_corrected_pos(self._get_all_tempfs_in_product())
             
-            
             # insert the fastener into the product
-            if self._insert_fast(tempf, self._product_approach_pos(), True):
+            if self._insert_fast(tempf, True):
                 # add the fastener to the product
                 if self.product.add_fast_to_location(tempf, prod_lst_id):
                     reevaluate_deviations(tempf, self._get_all_tempfs_in_product())
@@ -5666,7 +5683,7 @@ class cl_agent(cl_uid):
             return False
             
     
-    def remove_tempf(self, fastener_uid = "", speed = 100):
+    def remove_tempf(self, fastener_uid = "", passing_wp = [], speed = 100):
         """
         Function to remove a fastener from the product.
         
@@ -5674,13 +5691,14 @@ class cl_agent(cl_uid):
         1) find out what diameter is needed
         2) find a compatible fastener that is available in the storage location
         3) pick up the fastener
-        4) move to the target location in the product
+        4) move to the target location in the storage through passing_wp
         5) insert the fastener
         6) retract the end effector away from the product
         
         :param fastener_uid: str, the uid of the fastener to be removed from the product 
         :param speed: float, the speed as percentage of the maximum speed
-            
+        :param passing_wp: list[str] The waypoints to pass between pick up and install
+          
         :return: bool, returns True if successful
         """
         prod_lst_id = self.product.get_loc_lst_id_by_uid(fastener_uid)
@@ -5705,17 +5723,19 @@ class cl_agent(cl_uid):
         tempf.set_tool_center_point()
         
         # pick up the fastener from the product
-        if not self._pick_up_fast(tempf, self._product_approach_pos(), True):
-            #TODO: add to some kind of error list when failed to remove
+        if not self._pick_up_fast(tempf, True):
+            
             self.tf_ee.reset_cobot_output_pins_incl_air()
+
             # return failure; the ee will be above the tempf location 
             return False
         else:    
             # remove the tempf object from the storage location
             self.product.remove_fast_from_location(prod_lst_id)
             
-            # move to the storage apprach position
-            movel(self._tempf_storage_approach_pos(), ref=DR_BASE)
+            # move to the storage location
+            for wp in passing_wp:
+                self.move_to_waypoint(wp)
             
             # set the product location as the tempf target
             self.tempf_storage.set_location_as_fast_target(tempf, storage_loc_id)
@@ -5729,7 +5749,7 @@ class cl_agent(cl_uid):
             tempf.reset_to_installed_pos()
             
             # insert the fastener into the product
-            if self._insert_fast(tempf, self._tempf_storage_approach_pos(), True):
+            if self._insert_fast(tempf, True):
                 # add the fastener to the product
                 return self.tempf_storage.add_fast_to_location(tempf, storage_loc_id)
             
@@ -5917,21 +5937,19 @@ class cl_agent(cl_uid):
         return success
  
     
-    def _pick_up_fast(self, fast: cl_fastener, approach_pos, is_tempf: bool):
+    def _pick_up_fast(self, fast: cl_fastener, is_tempf: bool):
         """
         Function that picks up a fastener.
         The pick-up location can be found in the fast object
         
         :param fast: cl_fastener, the fastener object with 
                                         information on where to install it
-        :param approach_pos: pos, the position to go to before approaching 
-                                  the pick-up location
         :param is_tempf: bool, Whteher we are dealing with a temporary fastener
                                or a permanent fastener
             
         :return: bool, returns True if successful
         """
-        self._approach_fast(fast, approach_pos)
+        self._approach_fast(fast)
         is_untightened = False
                         
         if self._engage_fast(fast, PICK_UP_FORCE, PICK_UP_ENGAGEMENT_COMPLIANCE, PICK_UP_ENGAGEMENT_SPEED, True, is_tempf):
@@ -5964,9 +5982,6 @@ class cl_agent(cl_uid):
  
             if is_tempf:
                 self.tf_ee.stop_ejection()   
-            
-            # move to the approach position
-            movel(approach_pos, ref=DR_BASE)
             
             return False
         
@@ -6004,29 +6019,24 @@ class cl_agent(cl_uid):
         # move away from temps
         movel(posx(0, 0, -fast.shaft_height() - SAFE_Z_GAP, 0, 0, 0), ref=DR_TOOL, r = BLEND_RADIUS_SMALL)
         
-        # move to the approach position
-        movel(approach_pos, ref=DR_BASE)
-        
         # return the success
         return in_ee
  
     
-    def _insert_fast(self, fast: cl_fastener, approach_pos, is_tempf: bool):
+    def _insert_fast(self, fast: cl_fastener, is_tempf: bool):
         """
         Function that inserts and tightens a fastener.
         The function assumes that the target location is in the fast object
         
         :param fast: cl_fastener, the fastener object with 
                                         information on where to install it
-        :param approach_pos: pos, the position to go to before approaching 
-                                  the insert location
         :param is_tempf: bool, Whteher we are dealing with a temporary fastener
                                or a permanent fastener
             
         :return: bool, returns True if successful
         """
         
-        self._approach_fast(fast, approach_pos)
+        self._approach_fast(fast)
         
         #ATTENTION deactivated for now
         #TODO activate later again
@@ -6047,31 +6057,52 @@ class cl_agent(cl_uid):
         
         if is_tempf:
             is_tightened = self.tf_ee.tighten_temp(TIGHTEN_PROGRAM)
-        else:
-            is_tightened = self.pf_ee.start_trigger()
             
-        # try again if not tightened
-        if not is_tightened:
-            self.tf_ee.engagement_burst(BURST_PROGRAM, True)
-            is_tightened = self.tf_ee.tighten_temp(TIGHTEN_PROGRAM)
-        
-        if is_tightened:       
+            # try again if not tightened
+            if not is_tightened:
+                self.tf_ee.engagement_burst(BURST_PROGRAM, True)
+                is_tightened = self.tf_ee.tighten_temp(TIGHTEN_PROGRAM)
             
-            # get and log the place location to enable fine tuning of the storage location 
-            fast.set_install_pos_from_tcp_position()
-            
-            # let the fast and the ee know everything is in position, will also change the TCP
-            fast.set_as_in_product()
-            self.tf_ee.tempf_in_end_effector = False
-        else:
-            send_to_PC("insert_fast___", "fastener with uid {} not tightened.".format(fast.uid()))
-        
-        if is_tempf:
+            if is_tightened:       
+                
+                # get and log the place location to enable fine tuning of the storage location 
+                fast.set_install_pos_from_tcp_position()
+                
+                # let the fast and the ee know everything is in position, will also change the TCP
+                fast.set_as_in_product()
+
+                self.tf_ee.tempf_in_end_effector = False
+
+            else:
+                send_to_PC("insert_fast___", "fastener with uid {} not tightened.".format(fast.uid()))
+                
+                # TODO move to bin location must never cause collision
+                movel(BIN_POSITION, ref=DR_BASE)
+
+                is_ejected = self.tf_ee.eject_temp()
+
+                if is_ejected:
+                    fast.set_as_in_bin()
+                    self.tf_ee.tempf_in_end_effector = False
+               
+                return False
+
             self.tf_ee.stop_clamping()
 
             # start ejecting to help disengage the fastener
             self.tf_ee.start_ejection()
-        
+
+        else:
+            # get and log the place location to enable fine tuning of the storage location 
+            fast.set_install_pos_from_tcp_position()
+
+            is_tightened = self.pf_ee.start_trigger()
+
+            # let the fast and the ee know everything is in position, will also change the TCP
+            fast.set_as_in_product()
+
+            self.pf_ee.permf_in_end_effector = False
+
         # retract away from the fastener location in any case
         change_operation_speed(HOLE_RETRACTION_SPEED)
         
@@ -6082,23 +6113,18 @@ class cl_agent(cl_uid):
  
         # change to move speed
         change_operation_speed(MOVE_SPEED)
-        
-        # move to the approach position
-        movel(approach_pos, ref=DR_BASE)
  
         # return the result
         return is_tightened
     
     
-    def _approach_fast(self, fast: cl_fastener, approach_pos):
+    def _approach_fast(self, fast: cl_fastener):
         """
         Function that approaches a fastener.
         The function uses the location in the fast object
         
         :param fast: cl_fastener, the fastener object with 
-                                        information on where to approach it
-        :param approach_pos: pos, the position to go to before approaching 
-                                  the fastener itself
+                                  information on where to approach it
             
         :return: bool, returns True if successful
         """
@@ -6106,27 +6132,9 @@ class cl_agent(cl_uid):
         # make sure the coordinate frame is DR_BASE
         set_ref_coord(DR_BASE)
         
-        # get the pickup location
-        pick_up_tcp_approach_pos = fast.tcp_approach_pos()
-        
         change_operation_speed(MOVE_SPEED)
         
-        current_pos, sol = get_current_posx()
-        dist_to_pick_up = point_distance(current_pos, pick_up_tcp_approach_pos)
-        dist_to_approach_pos = point_distance(current_pos, approach_pos)
-        
-        #send_to_PC("approach_fast___", pos_string(approach_pos))
-        
-        # move to the approach position if that is closer
-        if dist_to_approach_pos < dist_to_pick_up:
-            movel(approach_pos, ref=DR_BASE)
-        else:
-            # move to a location on the xy plane of the approach_pos
-            # send_to_PC("approach_fast calculated position ", pos_string(project_pt_to_xy_pln(current_pos, approach_pos)))
-            movel(project_pt_to_xy_pln(current_pos, pick_up_tcp_approach_pos), ref=DR_BASE)
- 
-        # next move to the pick-up location
-        movel(pick_up_tcp_approach_pos, ref=DR_BASE)
+        movel(fast.tcp_approach_pos(), ref=DR_BASE)
         
     
     def _engage_fast(self, fast: cl_fastener, force, comp, speed, burst, is_tempf: bool):
@@ -6369,33 +6377,6 @@ class cl_agent(cl_uid):
         :return: cl_waypoint, the waypoint with the specified uid
         """ 
         return self._get_from_lst_by_uid(self.waypoints, uid, "waypoint", log)
- 
-
-    def _tempf_storage_approach_pos(self):
-        """
-        Function that returns the first cl_waypoint
-            
-        :return: pos, returns the position
-        """
-        return self._get_waypoint_by_uid(self.tempf_storage.approach_pos_uid)
-    
-
-    def _permf_storage_approach_pos(self):
-        """
-        Function that returns the second cl_waypoint
-            
-        :return: pos, returns the position
-        """
-        return self._get_waypoint_by_uid(self.permf_storage.approach_pos_uid)
- 
-    
-    def _product_approach_pos(self):
-        """
-        Function that returns the third cl_waypoint
-            
-        :return: pos, returns the position
-        """
-        return self._get_waypoint_by_uid(self.product.approach_pos_uid)
     
     
     def _get_from_lst_by_uid(self, lst_in, uid, o_name, log = True):
@@ -6653,8 +6634,9 @@ class cl_action(cl_uid):
         self.__loc_uid = loc_uid
         self.__is_done = is_done
         self.__is_cancelled = False
-        self.__is_failed = False
         self.__speed = speed
+        
+        self.passing_wps: list[str] = []
  
     
     def a_type(self):
@@ -6756,6 +6738,8 @@ class cl_action(cl_uid):
         """
         Sets the action as finished.
         """
+        self.__is_cancelled = False
+        self.__is_waiting = False
         self.__is_done = True
         
  
@@ -6764,7 +6748,7 @@ class cl_action(cl_uid):
         Sets the action as unfinished.
         """
         self.__is_done = False
-        
+    
 
     def is_waiting(self):
         """
@@ -6772,6 +6756,7 @@ class cl_action(cl_uid):
         
         :return: bool, whether the action is waiting.
         """
+        self.__is_done = False
         return self.__is_waiting
     
  
@@ -6802,6 +6787,8 @@ class cl_action(cl_uid):
         """
         Sets the action as cancelled.
         """
+        self.__is_done = False
+        self.__is_waiting = False
         self.__is_cancelled = True
         
  
@@ -6883,7 +6870,11 @@ def th_sync_queue_out():
         
     
 ###########################################             START             ###################################################
-#TODO include the speed factor everywhere
+ 
+# create the axis systems used throughout the program
+DR_USER_NOM = create_axis_syst_on_current_position()
+DR_USER_PROBE = create_axis_syst_on_current_position()
+DR_USER_NOM_OPP = create_axis_syst_on_current_position()
 
 PC_host_list = ['10.237.20.15', '10.237.20.2','10.237.20.3','10.237.20.4', '10.237.20.5'] # PCs that it will try to connect to
 PC_send_port = 65432
@@ -6899,9 +6890,7 @@ tf_ee = cl_temp_fast_ee()
 ###########################################
  
 # create a class that contains all actions
-#TODO add the tf_ee
-#TODO remove the file stuff
-agent = cl_agent("test", None, None, pf_ee, tf_ee)
+agent = cl_agent(None, None, None, pf_ee, tf_ee)
 
 if sync_data_with_PC:
     socket_to_PC = ClientSocket(PC_host_list, PC_send_port)
@@ -6914,137 +6903,128 @@ if sync_data_with_PC:
     th_out = thread_run(th_sync_queue_out, loop=True)
      
 send_to_PC("start program")
- 
-# create the axis systems used throughout the program
-DR_USER_NOM = create_axis_syst_on_current_position()
-DR_USER_PROBE = create_axis_syst_on_current_position()
-DR_USER_NOM_OPP = create_axis_syst_on_current_position()
 
 # create a class that contains all available storage locations
-storage = cl_f_container("storage", 30, "storage_approach_pos")
+agent.tempf_storage = cl_f_container("storage", 30, "storage_approach_pos")
  
  
 # add some tempf objects in the storage  
 #1
-storage.add_loc_to_holes_and_fast_lst("st_01_01", 4.8, 9, posx(-745.850,573.600,666.230,90.5,69.29,-89.92))
+agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_01", 4.8, 9, posx(-745.850,573.600,666.230,90.5,69.29,-89.92))
 # #2
-# storage.add_loc_to_holes_and_fast_lst("st_01_02", 4.8, 9, posx(-710.820,573.620,666.380,90.7,70.24,-90.62))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_02", 4.8, 9, posx(-710.820,573.620,666.380,90.7,70.24,-90.62))
 # #3
-# storage.add_loc_to_holes_and_fast_lst("st_01_03", 4.8, 9, posx(-663.620,574.360,664.990,90.7,70.24,-90.62))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_03", 4.8, 9, posx(-663.620,574.360,664.990,90.7,70.24,-90.62))
 # #4
-# storage.add_loc_to_holes_and_fast_lst("st_01_04", 4.8, 9, posx(-628.870,575.560,665.230,90.7,70.24,-90.62))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_04", 4.8, 9, posx(-628.870,575.560,665.230,90.7,70.24,-90.62))
 # #5
-# storage.add_loc_to_holes_and_fast_lst("st_01_05", 4.8, 9, posx(-593.620,575.610,665.310,90.7,70.24,-90.62))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_05", 4.8, 9, posx(-593.620,575.610,665.310,90.7,70.24,-90.62))
 # #6
-# storage.add_loc_to_holes_and_fast_lst("st_01_06", 4.8, 9, posx(-559.250,575.320,665.010,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_06", 4.8, 9, posx(-559.250,575.320,665.010,90,68.82,-90))
 # #7
-# storage.add_loc_to_holes_and_fast_lst("st_01_07", 4.8, 9, posx(-558.960,588.730,632.490,89.44,70.14,-90.74))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_07", 4.8, 9, posx(-558.960,588.730,632.490,89.44,70.14,-90.74))
 # #8
-# storage.add_loc_to_holes_and_fast_lst("st_01_08", 4.8, 9, posx(-594.270,586.88,632.540,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_08", 4.8, 9, posx(-594.270,586.88,632.540,90,68.82,-90))
 # #9
-# storage.add_loc_to_holes_and_fast_lst("st_01_09", 4.8, 9, posx(-629.170,586.620,632.360,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_09", 4.8, 9, posx(-629.170,586.620,632.360,90,68.82,-90))
 # #10
-# storage.add_loc_to_holes_and_fast_lst("st_01_10", 4.8, 9, posx(-663.930,586.270,632.370,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_10", 4.8, 9, posx(-663.930,586.270,632.370,90,68.82,-90))
 # #11
-# storage.add_loc_to_holes_and_fast_lst("st_01_11", 4.8, 9, posx(-711.280,584.840,633.390,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_11", 4.8, 9, posx(-711.280,584.840,633.390,90,68.82,-90))
 # #12
-# storage.add_loc_to_holes_and_fast_lst("st_01_12", 4.8, 9, posx(-746.280,583.710,633.090,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_12", 4.8, 9, posx(-746.280,583.710,633.090,90,68.82,-90))
 # #13
-# storage.add_loc_to_holes_and_fast_lst("st_01_13", 4.8, 9, posx(-780.970,583.530,632.830,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_13", 4.8, 9, posx(-780.970,583.530,632.830,90,68.82,-90))
 # #14
-# storage.add_loc_to_holes_and_fast_lst("st_01_14", 4.8, 9, posx(-781.1,595.870,600.450,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_14", 4.8, 9, posx(-781.1,595.870,600.450,90,68.82,-90))
 # #15
-# storage.add_loc_to_holes_and_fast_lst("st_01_15", 4.8, 9, posx(-746.480,596.740,600.660,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_15", 4.8, 9, posx(-746.480,596.740,600.660,90,68.82,-90))
 # #16
-# storage.add_loc_to_holes_and_fast_lst("st_01_16", 4.8, 9, posx(-711.440,596.650,600.610,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_16", 4.8, 9, posx(-711.440,596.650,600.610,90,68.82,-90))
 # #17
-# storage.add_loc_to_holes_and_fast_lst("st_01_17", 4.8, 9, posx(-664.140,597.940,599.570,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_17", 4.8, 9, posx(-664.140,597.940,599.570,90,68.82,-90))
 # #18
-# storage.add_loc_to_holes_and_fast_lst("st_01_18", 4.8, 9, posx(-629.360,598.540,599.280,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_18", 4.8, 9, posx(-629.360,598.540,599.280,90,68.82,-90))
 # #19
-# storage.add_loc_to_holes_and_fast_lst("st_01_19", 4.8, 9, posx(-594.260,599.580,599.150,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_19", 4.8, 9, posx(-594.260,599.580,599.150,90,68.82,-90))
 # #20
-# storage.add_loc_to_holes_and_fast_lst("st_01_20", 4.8, 9, posx(-559.370,600.280,599.18,90,68.82,-90))
+# agent.tempf_storage.add_loc_to_holes_and_fast_lst("st_01_20", 4.8, 9, posx(-559.370,600.280,599.18,90,68.82,-90))
  
 # add a fastener in storage
-storage.add_fast_to_loc_with_uid("Temp_01", "st_01_01")
-# storage.add_fast_to_loc_with_uid("Temp_02", "st_01_02")
-# storage.add_fast_to_loc_with_uid("Temp_03", "st_01_03")
-# storage.add_fast_to_loc_with_uid("Temp_04", "st_01_04")
-# storage.add_fast_to_loc_with_uid("Temp_05", "st_01_05")
-# storage.add_fast_to_loc_with_uid("Temp_06", "st_01_06")
-# storage.add_fast_to_loc_with_uid("Temp_07", "st_01_07")
-# storage.add_fast_to_loc_with_uid("Temp_08", "st_01_08")
-# storage.add_fast_to_loc_with_uid("Temp_09", "st_01_09")
-# storage.add_fast_to_loc_with_uid("Temp_10", "st_01_10")
-# storage.add_fast_to_loc_with_uid("Temp_11", "st_01_11")
-# storage.add_fast_to_loc_with_uid("Temp_12", "st_01_12")
-# storage.add_fast_to_loc_with_uid("Temp_13", "st_01_13")
-# storage.add_fast_to_loc_with_uid("Temp_14", "st_01_14")
-# storage.add_fast_to_loc_with_uid("Temp_15", "st_01_15")
-# storage.add_fast_to_loc_with_uid("Temp_16", "st_01_16")
-# storage.add_fast_to_loc_with_uid("Temp_17", "st_01_17")
-# storage.add_fast_to_loc_with_uid("Temp_18", "st_01_18")
-# storage.add_fast_to_loc_with_uid("Temp_19", "st_01_19")
-# storage.add_fast_to_loc_with_uid("Temp_20", "st_01_20")
+agent.tempf_storage.add_fast_to_loc_with_uid("Temp_01", "st_01_01")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_02", "st_01_02")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_03", "st_01_03")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_04", "st_01_04")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_05", "st_01_05")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_06", "st_01_06")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_07", "st_01_07")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_08", "st_01_08")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_09", "st_01_09")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_10", "st_01_10")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_11", "st_01_11")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_12", "st_01_12")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_13", "st_01_13")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_14", "st_01_14")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_15", "st_01_15")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_16", "st_01_16")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_17", "st_01_17")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_18", "st_01_18")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_19", "st_01_19")
+# agent.tempf_storage.add_fast_to_loc_with_uid("Temp_20", "st_01_20")
 ###########################################
  
 # create a class that contains all available hole positions in the product
-product = cl_f_container("product", 30, "product_approach_pos")
+agent.product = cl_f_container("product", 30, "product_approach_pos")
  
  
  
 # add some tempf objects in the product  
  
-product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-715.820,573.620,666.380,96.82,70.24,-90.62)) #x = -710.820 a = 90.7 ; y = 573.620 z = 666.380
+agent.product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-715.820,573.620,666.380,96.82,70.24,-90.62)) #x = -710.820 a = 90.7 ; y = 573.620 z = 666.380
  
 # #1
-# product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-749.610,742.340,296.090,90.64,61.47,-91.01))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_01", 4.8, 9, posx(-749.610,742.340,296.090,90.64,61.47,-91.01))
 # #2
-# product.add_loc_to_holes_and_fast_lst("pr_01_02", 4.8, 9, posx(-750.300,747.700,281.550,91.24,63,-91.24))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_02", 4.8, 9, posx(-750.300,747.700,281.550,91.24,63,-91.24))
 # #3
-# product.add_loc_to_holes_and_fast_lst("pr_01_03", 4.8, 9, posx(-750.220,757.480,264.870,91.03,62.78,-91.66))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_03", 4.8, 9, posx(-750.220,757.480,264.870,91.03,62.78,-91.66))
 # #4
-# product.add_loc_to_holes_and_fast_lst("pr_01_04", 4.8, 9, posx(-715.500,758.340,263.990,90.91,62.48,-92.11))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_04", 4.8, 9, posx(-715.500,758.340,263.990,90.91,62.48,-92.11))
 # #5
-# product.add_loc_to_holes_and_fast_lst("pr_01_05", 4.8, 9, posx(-714.350,749.520,280.910,90.78,62.1,-91.34))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_05", 4.8, 9, posx(-714.350,749.520,280.910,90.78,62.1,-91.34))
 # #6
-# product.add_loc_to_holes_and_fast_lst("pr_01_06", 4.8, 9, posx(-744.350,722.340,324.690,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_06", 4.8, 9, posx(-744.350,722.340,324.690,90.58,64.25,-90.75))
 # #7
-# product.add_loc_to_holes_and_fast_lst("pr_01_07", 4.8, 9, posx(-744.180,729.660,307.750,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_07", 4.8, 9, posx(-744.180,729.660,307.750,90.58,64.25,-90.75))
 # #8
-# product.add_loc_to_holes_and_fast_lst("pr_01_08", 4.8, 9, posx(-709.100,730.420,307.790,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_08", 4.8, 9, posx(-709.100,730.420,307.790,90.58,64.25,-90.75))
 # #9
-# product.add_loc_to_holes_and_fast_lst("pr_01_09", 4.8, 9, posx(-709.250,722.090,324.110,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_09", 4.8, 9, posx(-709.250,722.090,324.110,90.58,64.25,-90.75))
 # #10
-# product.add_loc_to_holes_and_fast_lst("pr_01_10", 4.8, 9, posx(-709.410,715.630,339.750,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_10", 4.8, 9, posx(-709.410,715.630,339.750,90.58,64.25,-90.75))
 # #11
-# product.add_loc_to_holes_and_fast_lst("pr_01_11", 4.8, 9, posx(-674.290,715.300,339.590,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_11", 4.8, 9, posx(-674.290,715.300,339.590,90.58,64.25,-90.75))
 # #12
-# product.add_loc_to_holes_and_fast_lst("pr_01_12", 4.8, 9, posx(-674.140,722.880,323.670,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_12", 4.8, 9, posx(-674.140,722.880,323.670,90.58,64.25,-90.75))
 # #13
-# product.add_loc_to_holes_and_fast_lst("pr_01_13", 4.8, 9, posx(-673.990,730.470,308.070,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_13", 4.8, 9, posx(-673.990,730.470,308.070,90.58,64.25,-90.75))
 # #14
-# product.add_loc_to_holes_and_fast_lst("pr_01_14", 4.8, 9, posx(-639.200,731.460,308.260,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_14", 4.8, 9, posx(-639.200,731.460,308.260,90.58,64.25,-90.75))
 # #15
-# product.add_loc_to_holes_and_fast_lst("pr_01_15", 4.8, 9, posx(-639.350,723.830,324.260,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_15", 4.8, 9, posx(-639.350,723.830,324.260,90.58,64.25,-90.75))
 # #16
-# product.add_loc_to_holes_and_fast_lst("pr_01_16", 4.8, 9, posx(-639.500,716.450,340.110,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_16", 4.8, 9, posx(-639.500,716.450,340.110,90.58,64.25,-90.75))
 # #17
-# product.add_loc_to_holes_and_fast_lst("pr_01_17", 4.8, 9, posx(-604.380,716.590,339.780,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_17", 4.8, 9, posx(-604.380,716.590,339.780,90.58,64.25,-90.75))
 # #18
-# product.add_loc_to_holes_and_fast_lst("pr_01_18", 4.8, 9, posx(-604.230,724.330,324.040,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_18", 4.8, 9, posx(-604.230,724.330,324.040,90.58,64.25,-90.75))
 # #19
-# product.add_loc_to_holes_and_fast_lst("pr_01_19", 4.8, 9, posx(-604.070,731.030,308.220,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_19", 4.8, 9, posx(-604.070,731.030,308.220,90.58,64.25,-90.75))
 # #20
-# product.add_loc_to_holes_and_fast_lst("pr_01_20", 4.8, 9, posx(-569.270,717.230,339.980,90.58,64.25,-90.75))
+# agent.product.add_loc_to_holes_and_fast_lst("pr_01_20", 4.8, 9, posx(-569.270,717.230,339.980,90.58,64.25,-90.75))
  
 ###########################################
 # product.log_holes_and_fast_lst()
- 
- 
-# create a class that contains all actions
-#agent = cl_agent("test", storage, product, ee, folder, filename)
  
  
 # add the storage location waypoint

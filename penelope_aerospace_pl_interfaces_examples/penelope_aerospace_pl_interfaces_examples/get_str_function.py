@@ -11,7 +11,6 @@ PRODUCT_TAG = "product" + OPEN_TAG
 LOCATIONS_TAG = "locations" + OPEN_TAG
 LOC_UID_TAG = "loc_uid" + OPEN_TAG
 MAX_OBST_HEIGHT_TAG = "max_obstacle_height" + OPEN_TAG
-APPR_POS_UID_TAG = "approach_pos_uid" + OPEN_TAG
 HOLE_LOCATION_TAG = "hole_location" + OPEN_TAG
 POSE_TAG = "pose" + OPEN_TAG
 POSE_PX_TAG = "pose_p_x" + OPEN_TAG
@@ -251,9 +250,6 @@ def _get_hole_location_container_to_cobot_str(cont_in):
     # max_obstacle_height
     str = str + MAX_OBST_HEIGHT_TAG + str(cont_in.max_obstacle_height) + CLOSE_TAG
 
-    # approach_pos_uid
-    str = str + APPR_POS_UID_TAG + cont_in.approach_pos_uid + CLOSE_TAG 
-
     return str
 
 # get message string for AssemblyHoleLocation
@@ -375,7 +371,7 @@ def _get_action_to_cobot_str(action_in):
     # string loc_uid: uid of the target location of the object
     str = str + PASSING_UIDS_TAG 
     for passing in action_in.passing:
-        str = str + PASSING_UID_TAG + action_in.passing + CLOSE_TAG
+        str = str + PASSING_UID_TAG + passing + CLOSE_TAG
     str = str + CLOSE_TAG
 
     # uint8 speed: the speed as percentage of the maximum speed
