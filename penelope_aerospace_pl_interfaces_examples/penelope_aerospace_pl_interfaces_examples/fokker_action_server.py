@@ -46,11 +46,11 @@ class FokkerActionServer(Node):
             
         self.get_logger().info(f"Finished passing action file to cobot.")
 
-        # Indicate the action succeeded (this does not indicate succes!)
-        goal_handle.succeed()
-
         while not self.is_ready:
             sleep(0.1)
+
+        # Indicate the action succeeded (this does not indicate succes!)
+        goal_handle.succeed()
 
         return self.result_msg
     
@@ -65,7 +65,7 @@ class FokkerActionServer(Node):
         # Send as feedback in all cases
         self._action_server._goal_handles[-1].publish_feedback(feedback_msg)
 
-        self.result_msg = self._create_result_message_from_cobot_output(cobot_str)
+        self.result_msg = feedback_msg
         
         # trigger sending result if ready
         if self.result_msg.result_code == ResultCodes.RC_SUCCES:

@@ -1075,8 +1075,11 @@ def handle_execution_str(msg_str: str, agent: cl_agent):
     :param msg_str: str, the string from the ROS server to modify the agent instance.
     :param agent: cl_agent, the agent instance to be modified.
     """
-    # agent.execute()
-    send_to_PC("","")
+    a_uid = extract_leaf_content(msg_str, UID_TAG, CLOSE_TAG)
+
+    agent.execute_uid(a_uid)
+
+    send_to_PC("","action {} received and sent to be axecuted.".format(a_uid))
 
 
 def _get_posx_from_str(str_in):
