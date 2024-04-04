@@ -18,6 +18,9 @@ To build from source, clone the lastest version from this repository into your R
     cd ros2_ws/src
     git clone https://github.com/sam-xl/penelope_aerospace_pl_interfaces.git
 
+Always source `ros2` installation in a new terminal before installaing dependencines and building pkgs:
+
+    source /opt/ros/humble/setup.bash
 
 Install the dependencies of the cloned packages using `rosdep`:
 
@@ -37,6 +40,10 @@ The `penelope_aerospace_pl_interfaces_msgs` package is used as a description of 
 This repository contains an example server and client that demonstrates one of the action interfaces that will be used. This can serve as a baseline for implementation of the interface in the process modules and digital thread. The example focusses only on how to interact with the action interface and send/read the goal, feedback and result. The process logic is not part of the example.
 
 ### Run example server and client
+Always source the newly compiled pkgs from the local `install` folder before running them:
+
+    source install/setup.bash
+    
 To run the action server (module side of the interface):
 
     ros2 run penelope_aerospace_pl_interfaces_examples example_server
