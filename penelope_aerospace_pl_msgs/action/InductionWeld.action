@@ -12,6 +12,8 @@
 uint16 stringer_id
 # The tool trajecory to perfom the weld of the stringer
 trajectory_msgs/JointTrajectory weld_trajectory
+# action required ('waiting_for_command', 'end_effector_couple', 'welding', 'end_effector_decouple', 'safe_operator_mode', 'abort_weld')
+string action_required
 
 ---
 
@@ -54,6 +56,9 @@ float32[] thermocouple_temperature
 # Welding tool speed
 float32 speed
 
+# End_effector coupled yes/no
+uint16 end_effector_coupled
+
 # Module specific state 
 # Refer to penelope_aerspace_pl_msgs/msg/InductionWeldingState for the state 
 # definition
@@ -61,3 +66,4 @@ InductionWeldingState state
 
 # Generic module state
 ModuleState module_state
+

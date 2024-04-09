@@ -21,6 +21,7 @@ setup(
         "console_scripts": [
             "example_client = penelope_aerospace_pl_interfaces_examples.example_action_client:main",
             "example_server = penelope_aerospace_pl_interfaces_examples.example_action_server:main",
+            "induct_serverr = penelope_aerospace_pl_interfaces_examples.induct_action_server:main",
         ],
     },
 )
