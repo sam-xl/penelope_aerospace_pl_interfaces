@@ -13,22 +13,22 @@ find_package(shape_msgs REQUIRED)
 find_package(trajectory_msgs)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "action/CobotDrill.action"
-  "action/DvmInspect.action"
-  "action/InductionWeld.action"
-  "action/InfraredThermographyInspect.action"
-  "action/StringerPlace.action"
-  "msg/CobotDrillingHole.msg"
-  "msg/CobotDrillingHoleArray.msg"
-  "msg/CobotDrillingHoleState.msg"
-  "msg/CobotDrillingState.msg"
-  "msg/DvmState.msg"
-  "msg/InductionWeldingState.msg"
-  "msg/InfraredThermographyState.msg"
+  "msg/AssemblyAction.msg"
+  "msg/AssemblyActionState.msg"
+  "msg/AssemblyActionType.msg"
+  "msg/AssemblyDrill.msg"
+  "msg/AssemblyEe.msg"
+  "msg/AssemblyEeDockingPos.msg"
+  "msg/AssemblyEeState.msg"
+  "msg/AssemblyFast.msg"
+  "msg/AssemblyFastState.msg"
+  "msg/AssemblyHoleLocation.msg"
+  "msg/AssemblyHoleLocationContainer.msg"
+  "msg/AssemblyMaterialLayer.msg"
+  "msg/AssemblyWaypoint.msg"
   "msg/ModuleState.msg"
   "msg/ResultCodes.msg"
-  "msg/SolidPrimitiveStamped.msg"
-  "msg/StringerPlaceState.msg"
+  "action/CobotOp.action"
 
   DEPENDENCIES # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
     geometry_msgs
