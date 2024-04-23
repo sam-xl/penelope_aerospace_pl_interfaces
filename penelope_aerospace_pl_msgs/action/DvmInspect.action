@@ -37,7 +37,7 @@ bool[] processed_data_available
 bool[] ndt_approved
 
 # Action success/failure indicator.
-# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes.
 uint16 result_code
 
 # Status message (empty if action succeeded)
@@ -56,6 +56,15 @@ float32[] time_to_completion
 # Module specific state
 # Refer to penelope_aerospace_pl_msgs/msg/DvmState for the definition
 DvmState[] measurement_state
+
+# Triggers state
+TriggersState triggers_state
+
+# speed between movements
+float32 movement_speed
+
+# increment of the triggers
+float32 increment_between_triggers
 
 # Processing and approval state information
 bool[] processed_data_available

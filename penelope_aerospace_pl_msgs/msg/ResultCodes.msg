@@ -10,7 +10,8 @@ string SUCCES=""
 uint16 RC_SUCCES=1
 
 # Generic failure message
-string FAILED="Action/Service failed.. See module log for more details."
+string FAILED_BY_USER="Action/Service failed scan, terminated by operator."
+string FAILED="Action/Service failed scan with errors."
 uint16 RC_FAILED=2
 
 #-------------------------------------------------------------------------------
