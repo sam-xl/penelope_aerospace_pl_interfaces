@@ -26,3 +26,7 @@ uint16 RC_FAILED=2
 # sucessful. The generic failure message should only be used to indicate events
 # that were not anticipated.
 #-------------------------------------------------------------------------------
+
+# DVM status messages (Range between 100 and 199)
+string DVM_FAILED_BY_USER="DVM scan failed, terminated by operator."
+uint16 RC_DVM_FAILED_BY_USER=100
