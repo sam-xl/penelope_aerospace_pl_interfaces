@@ -14,7 +14,7 @@
 
 uint8 ACCEPTED=1
 uint8 EXECUTING=2
-uint8 PAUSED=7
-uint8 CANCELING=3
+uint8 PAUSED=3
+uint8 CANCELING=4
 
 uint8 data
