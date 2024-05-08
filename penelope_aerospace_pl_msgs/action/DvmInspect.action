@@ -14,6 +14,10 @@ SolidPrimitiveStamped allocated_space
 # Define the location of the geometry file
 string geometry_file_location # e.g. a '.ply' file
 
+# TODO: Add description
+string[] dvm_aquisition_parameters_directories
+string[] dvm_aquisition_parameters_files
+
 # Define process parameters
 #   The robot settings
 string[] robot_parameters # e.g. 'robot.ini'
