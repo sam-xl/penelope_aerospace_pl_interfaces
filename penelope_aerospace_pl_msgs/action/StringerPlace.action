@@ -13,9 +13,22 @@
 # Action goal fields
 #-------------------------------------------------------------------------------
 
-# One PoseArray per stringer placement. The path consists of the setpoints to 
-# reach.
-geometry_msgs/PoseArray[] paths
+# Position of the end effector at the home position above the storage table
+geometry_msgs/PoseStamped home_position
+#'storage_table_frame' + [0, 0, dz \approx 
+
+# Positions of the stringers on the storage table
+geometry_msgs/PoseStamped[] stringer_storage_positions
+#'storage_table_frame' +[dx, dy, 0]
+
+# Positions of the stringers on the skin
+geometry_msgs/PoseStamped[] stringer_skin_positions
+#'stringer_1_frame' + [dx, dy, 0]
+
+# Position of the end effector in the mould, above the skin
+geometry_msgs/PoseStamped mould_position
+#stringer_1_frame + [0, 0, dz] 
+#middle_of_jig_position, determine z
 
 # Indicate if the poses in the array have the end-effector close enough to the
 # final position such that the sensors are within their measurement range.
@@ -26,14 +39,16 @@ bool[] sensors_in_range
 #-------------------------------------------------------------------------------
 # Action result fields
 #-------------------------------------------------------------------------------
-# coordinates for the final gantry position after correcting the errors
-geometry_msgs/PoseStamped final_stringer_pose
+# poses for the final gantry position after correcting the errors
+geometry_msgs/PoseStamped[] final_stringer_poses
+#geometry_msgs/Pose[] final_stringer_poses
 
 # Estimated skin position resulting from the stringer placements. Every place
 # operation generates a separate estimate
-geometry_msgs/PoseStamped skin_pose_estimate
+geometry_msgs/PoseStamped[] skin_pose_estimates
+#geometry_msgs/Pose[] skin_pose_estimates
 
-# Number of iterations to get placement within tolerance
+# Number of iterations to get placement within tolerance, per stringer placed
 uint16[] attempts
 
 # Placement result per stringer, corresponding to the stringer IDS in 
@@ -53,8 +68,8 @@ string message
 # Action feedback fields
 #-------------------------------------------------------------------------------
 
-# Module specific state
+# Closed loop placement state
 StringerPlaceState process_state
 
-# Generic module state
+# Module process state
 ModuleState module_state
