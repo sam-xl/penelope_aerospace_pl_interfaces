@@ -12,7 +12,8 @@
 uint16 stringer_id
 # The tool trajecory to perfom the weld of the stringer
 trajectory_msgs/JointTrajectory weld_trajectory
-
+# The current to use during welding
+uint16 weld_current
 ---
 
 #-------------------------------------------------------------------------------
