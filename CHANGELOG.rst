@@ -2,6 +2,10 @@
 Changelog for package PeneloPe Aerospace Pilot Line Interfaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.2 (2024-07-04)
+------------------
+* Add a `weld_current` field to the goal of the InductionWeld action definition (KvE)
+
 1.0.1 (2024-05-02)
 ------------------
 * Update definition of action and messages used by TNO for DVM
