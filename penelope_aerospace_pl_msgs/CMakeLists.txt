@@ -13,11 +13,11 @@ find_package(shape_msgs REQUIRED)
 find_package(trajectory_msgs)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/AccurateStringerPlacement.action"
   "action/CobotDrill.action"
   "action/DvmInspect.action"
   "action/InductionWeld.action"
   "action/InfraredThermographyInspect.action"
-  "action/StringerPlace.action"
   "msg/CobotDrillingHole.msg"
   "msg/CobotDrillingHoleArray.msg"
   "msg/CobotDrillingHoleState.msg"
