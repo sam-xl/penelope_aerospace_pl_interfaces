@@ -39,6 +39,8 @@ DvmState[] measurement_state
 bool[] measurement_ready
 bool[] processed_data_available
 bool[] ndt_approved
+sensor_msgs/Image[] intensity_map
+sensor_msgs/Image[] processed_scan
 
 # Action success/failure indicator.
 # Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes.
