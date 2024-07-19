@@ -37,5 +37,10 @@ uint8 CANCELLED = 8
 uint8 ABORTED = 9
 uint8 FAILED = 10
 uint8 OFFLINE = 11
+uint8 NOTHING_HAPPENING = 12
+uint8 MOVING = 13
+uint8 SCAN_FINISHED = 15
+uint8 SCAN_FAILED = 16
+uint8 SCAN_ABORTED = 17
 
 uint8 data
