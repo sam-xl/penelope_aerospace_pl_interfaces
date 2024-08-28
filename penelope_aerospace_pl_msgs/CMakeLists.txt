@@ -16,6 +16,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/AccurateStringerPlacement.action"
   "action/CobotDrill.action"
   "action/DvmInspect.action"
+  "action/ExampleAction.action"
   "action/InductionWeld.action"
   "action/InfraredThermographyInspect.action"
   "msg/CobotDrillingHole.msg"
