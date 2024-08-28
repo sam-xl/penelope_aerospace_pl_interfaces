@@ -1,0 +1,66 @@
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition, is to perform a NDT Inspection using
+#   the SAM XL Zero Programming Framework.
+#
+#   This framework determines the object to be scanned, and automatically plans
+#   a trajectory to perform a NDT inspection over this object.
+#
+#   This process is based on the DVM process by TNO.
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+#-------------------------------------------------------------------------------
+
+#--------------------
+# Reconstruction
+#--------------------
+# Name of the end-effector (frame_id) of the tool used during the 3D reconstruction
+std_msgs/String controlled_frame_reconstruction
+
+# Capture poses for the object reconstruction phase. Uses the `controlled_frame_reconstruction` to perform this motion.
+geometry_msgs/PoseArray capture_poses
+
+
+#--------------------
+# Motion Planning
+#--------------------
+# Name of the end-effector (frame_id) of the tool used during inspection
+std_msgs/String controlled_frame_inspection
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+#-------------------------------------------------------------------------------
+
+# Trajectory of the reconstruction motion. capture_poses is used as input for this trajectory.
+trajectory_msgs/Trajectory trajectory_reconstruction
+
+# The reconstructed mesh from the "sense" part. Used as input for the tool path generation.
+shape_msgs/Mesh object_mesh
+
+# Generated inspection tool path. Used as input for the motion planning.
+geometry_msgs/PoseArray[] toolpath
+
+# Trajecory of the inspection
+trajectory_msgs/Trajectory trajectory_inspection
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
+# Status message (empty if action succeeded)
+string message
+
+---
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+#-------------------------------------------------------------------------------
+
+InspectNdtState process_state
+
+# Generic module state
+ModuleState module_state
