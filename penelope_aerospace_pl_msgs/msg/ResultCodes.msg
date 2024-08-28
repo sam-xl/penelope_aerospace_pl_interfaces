@@ -26,6 +26,40 @@ uint16 RC_FAILED=2
 # that were not anticipated.
 #-------------------------------------------------------------------------------
 
+#-------------------------------------
 # DVM status messages (Range between 100 and 199)
+#-------------------------------------
+
 string DVM_FAILED_BY_USER="DVM scan failed, terminated by operator."
 uint16 RC_DVM_FAILED_BY_USER=100
+
+#-------------------------------------
+# Zero Programming (SAMXL) status messages (Range between 200 and 299)
+#-------------------------------------
+
+string ZP_UNKNOWN_CONTROLLED_FRAME_RECONSTRUCTION="The controlled frame for reconstruction is unknown."
+uint16 RC_ZP_UNKNOWN_CONTROLLED_FRAME_RECONSTRUCTION=200
+
+string ZP_UNKNOWN_CONTROLLED_FRAME_INSPECTION="The specified controlled frame for inspection is unknown."
+uint16 RC_ZP_UNKNOWN_CONTROLLED_FRAME_INSPECTION=201
+
+string ZP_UNKNOWN_FRAME_ID_CAPTURE_POSES="The frame id for the capture poses is unknown."
+uint16 RC_ZP_UNKNOWN_FRAME_ID_CAPTURE_POSES=202
+
+# Generic error for failed motion planning
+string ZP_MOTION_PLANNING_FAILED="Unable to plan the requested motion."
+uint16 RC_ZP_MOTION_PLANNING_FAILED=203
+
+# Motion planning failed due to detected collisions during reconstruction state
+string ZP_MOTION_PLANNING_FAILED_COLLISION="Unable to plan the requested motion due to detected collision(s)."
+uint16 RC_ZP_MOTION_PLANNING_FAILED=204
+
+# Generic error for failed tool path planning
+string ZP_TOOL_PATH_PLANNING_FAILED="Unable to plan tool paths."
+uint16 RC_ZP_TOOL_PATH_PLANNING_FAILED=205
+
+string ZP_GANTRY_MOTION_FAILED="Unable to execute the motion on the Gantry."
+uint16 RC_ZP_GANTRY_MOTION_FAILED=206
+
+string ZP_CAMERA_CAPTURE_FAILED="Unalbe to take camera capture"
+uint16 RC_ZP_CAMERA_CAPTURE_FAILED=207
