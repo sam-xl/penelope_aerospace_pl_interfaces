@@ -10,12 +10,14 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   ModuleState.msg
+  NdtInspectState.msg
   ResultCodes.msg
 )
 
 add_action_files(
   FILES
   ExampleAction.action
+  NdtInspect.action
 )
 
 generate_messages(
