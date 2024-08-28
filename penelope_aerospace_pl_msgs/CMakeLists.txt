@@ -1,54 +1,32 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.0.2)
 project(penelope_aerospace_pl_msgs)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-find_package(ament_cmake REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(shape_msgs REQUIRED)
-find_package(trajectory_msgs)
-
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "action/AccurateStringerPlacement.action"
-  "action/CobotDrill.action"
-  "action/DvmInspect.action"
-  "action/ExampleAction.action"
-  "action/InductionWeld.action"
-  "action/InfraredThermographyInspect.action"
-  "msg/CobotDrillingHole.msg"
-  "msg/CobotDrillingHoleArray.msg"
-  "msg/CobotDrillingHoleState.msg"
-  "msg/CobotDrillingState.msg"
-  "msg/DvmState.msg"
-  "msg/InductionWeldingState.msg"
-  "msg/InfraredThermographyState.msg"
-  "msg/ModuleState.msg"
-  "msg/ResultCodes.msg"
-  "msg/SolidPrimitiveStamped.msg"
-  "msg/StringerPlaceState.msg"
-  "msg/TriggersState.msg"
-
-  DEPENDENCIES # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
-    geometry_msgs
-    sensor_msgs
-    shape_msgs
-    trajectory_msgs
+find_package(catkin REQUIRED COMPONENTS
+  actionlib_msgs
+  message_generation
+  std_msgs
 )
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
+add_message_files(
+  FILES
+  ModuleState.msg
+  ResultCodes.msg
+)
 
-ament_package()
+add_action_files(
+  FILES
+  ExampleAction.action
+)
+
+generate_messages(
+  DEPENDENCIES
+    actionlib_msgs
+    std_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS
+    actionlib_msgs
+    std_msgs
+    message_runtime
+)
