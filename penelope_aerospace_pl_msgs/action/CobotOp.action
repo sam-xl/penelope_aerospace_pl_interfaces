@@ -1,0 +1,107 @@
+#-------------------------------------------------------------------------------
+# Description:
+#   The purpose of this action definition, is to controll the Cobot system
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# Action goal fields
+# Describes the goal that the client wants to achieve. 
+# It includes fields that specify the parameters of the goal.
+#-------------------------------------------------------------------------------
+
+AssemblyHoleLocationContainer permf_storage # permf storage location container
+
+AssemblyHoleLocationContainer tempf_storage # tempf storage location container
+
+AssemblyHoleLocationContainer product       # product container with holes
+
+AssemblyWaypoint[] waypoints                # array of defined waypoints
+
+AssemblyAction[] actions                    # array of defined actions 
+                                            # instl permf, instl tempf, move to waypoint or remove tempf)
+
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
+
+AssemblyFast[] fasteners                    # array of available fasteners
+
+AssemblyFast[] tempfs                       # array of available temporary fasteners
+
+AssemblyEeDockingPos[] docking_pos          # array of available docking positions for End Effectors
+
+AssemblyEe[] ee                             # array of available End Effectors
+
+string[] execute                            # array of action uid's to execute
+
+---
+
+#-------------------------------------------------------------------------------
+# Action result fields
+# Describes the result that the server sends back when the goal is completed. 
+# It includes fields that specify the outcome or information related to the execution.
+#-------------------------------------------------------------------------------
+
+AssemblyAction[] actions                    # array of defined actions
+                                            # This includes the status of each action
+
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
+                                            # This includes current state
+                                            # This also includes updated drill jig locations
+                                            # as measured during insertion of the drill into the drill jig
+
+AssemblyFast[] fasteners                    # array of available fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the fastener
+
+AssemblyFast[] tempfs                       # array of available temporary fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the temporary fastener
+
+AssemblyEe[] ee                             # array of availaable End Effectors
+                                            # This includes current state and End Effector location
+
+# Action success/failure indicator.
+# Refer to penelope_aerospace_pl_msgs/msg/ResultCodes for defined error codes. 
+uint16 result_code
+
+# Status message (empty if everything according to plan)
+string message
+
+---
+
+#-------------------------------------------------------------------------------
+# Action feedback fields
+# Describes the feedback that the server sends during the execution of the goal. 
+# It includes fields that provide ongoing information about the progress of the goal.
+#-------------------------------------------------------------------------------
+
+# Completion information
+float32 percent_complete	# number between 0 - 100
+
+AssemblyAction[] actions                    # array of defined actions
+                                            # This includes the status of each action
+
+AssemblyDrill[] drill_tasks                 # array of holes to be drilled
+                                            # This includes current state
+                                            # This also includes updated drill jig locations
+                                            # as measured during insertion of the drill into the drill jig
+
+AssemblyFast[] fasteners                    # array of available fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the fastener
+
+AssemblyFast[] tempfs                       # array of available temporary fasteners
+                                            # This includes current state and location
+                                            # This also includes updated installation locations
+                                            # as measured during installation of the temporary fastener
+
+AssemblyEe[] ee                             # array of availaable End Effectors
+                                            # This includes current state and End Effector location
+
+# Status message (empty if everything according to plan)
+string message
+
+# Generic module state
+ModuleState module_state
